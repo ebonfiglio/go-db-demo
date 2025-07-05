@@ -11,8 +11,8 @@ type OrganizationRepository struct {
 	db *sqlx.DB
 }
 
-func NewOrganizationRepository(db sqlx.DB) *OrganizationRepository {
-	return &OrganizationRepository{&db}
+func NewOrganizationRepository(db *sqlx.DB) *OrganizationRepository {
+	return &OrganizationRepository{db}
 }
 
 func (r OrganizationRepository) InsertOrganization(o *domain.Organization) (*domain.Organization, error) {

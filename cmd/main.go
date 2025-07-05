@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"go-db-demo/internal/db"
 	"go-db-demo/internal/domain"
 	"go-db-demo/internal/service"
+	"os"
 	"sort"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -34,6 +37,8 @@ func main() {
 		listCommands(&input)
 
 		switch input {
+		case "1":
+			createOrganizationCommand(dbConn)
 		case "5":
 			createUserCommand(dbConn)
 		case "6":
@@ -51,6 +56,19 @@ func main() {
 	}
 }
 
+func createOrganizationCommand(dbConn *sqlx.DB) {
+	newOrgValues := getNewEntityInput()
+	org, err := domain.JsonToOrganization(newOrgValues)
+	if err != nil {
+		fmt.Println(err)
+	}
+	org, err = service.CreateOrganization(org, dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Organziation ID: ", org.ID)
+}
+
 func createUserCommand(dbConn *sqlx.DB) {
 	newUserValues := getNewEntityInput()
 	user, err := domain.JsonToUser(newUserValues)
@@ -66,8 +84,10 @@ func createUserCommand(dbConn *sqlx.DB) {
 
 func getNewEntityInput() string {
 	fmt.Println("Enter new entity as JSON:")
-	var json string
-	fmt.Scanln(&json)
+	reader := bufio.NewReader(os.Stdin)
+	json, _ := reader.ReadString('\n')
+
+	json = strings.TrimSpace(json)
 	return json
 }
 
