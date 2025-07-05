@@ -35,10 +35,7 @@ func main() {
 
 		switch input {
 		case "5":
-			shouldReturn := createUserCommand(dbConn)
-			if shouldReturn {
-				return
-			}
+			createUserCommand(dbConn)
 		case "6":
 			fmt.Println("Enter the users id:")
 		case "7":
@@ -54,18 +51,24 @@ func main() {
 	}
 }
 
-func createUserCommand(dbConn *sqlx.DB) bool {
-	fmt.Println("Enter the users name:")
-	var newUserValues string
-	fmt.Scanln(&newUserValues)
-	user := domain.NewUser(newUserValues)
-	user, err := service.CreateUser(user, dbConn)
+func createUserCommand(dbConn *sqlx.DB) {
+	newUserValues := getNewEntityInput()
+	user, err := domain.JsonToUser(newUserValues)
 	if err != nil {
 		fmt.Println(err)
-		return true
+	}
+	user, err = service.CreateUser(user, dbConn)
+	if err != nil {
+		fmt.Println(err)
 	}
 	fmt.Println("User ID: ", user.ID)
-	return false
+}
+
+func getNewEntityInput() string {
+	fmt.Println("Enter new entity as JSON:")
+	var json string
+	fmt.Scanln(&json)
+	return json
 }
 
 func listCommands(input *string) {
