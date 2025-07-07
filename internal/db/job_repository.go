@@ -18,8 +18,10 @@ func NewJobRepository(db *sqlx.DB) *JobRepository {
 func (r JobRepository) InsertJob(j *domain.Job, db sqlx.DB) (*domain.Job, error) {
 	createdJob := &domain.Job{}
 	err := r.db.Get(createdJob,
-		"INSERT INTO jobs (name) VALUES ($1) RETURNING id, name",
-		j.Name,
+		`INSERT INTO jobs (name, organization_id)
+     VALUES ($1, $2)
+     RETURNING id, name, organization_id`,
+		j.Name, j.OrganizationID,
 	)
 	if err != nil {
 		log.Fatal(err)
