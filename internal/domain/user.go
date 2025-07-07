@@ -9,6 +9,7 @@ type User struct {
 	ID             int64  `json:"id"`
 	Name           string `json:"name"`
 	OrganizationID int64  `json:"organization_id"`
+	JobID          int64  `json:"job_id"`
 }
 
 func JsonToUser(input string) (*User, error) {
