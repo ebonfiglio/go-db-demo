@@ -26,3 +26,12 @@ func (r OrganizationRepository) InsertOrganization(o *domain.Organization) (*dom
 	}
 	return createdOrganization, err
 }
+
+func (r OrganizationRepository) GetAll() ([]domain.Organization, error) {
+	organizations := make([]domain.Organization, 0)
+	err := r.db.Select(&organizations, "select id, name from organizations")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return organizations, err
+}

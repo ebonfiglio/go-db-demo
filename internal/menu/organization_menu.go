@@ -15,6 +15,7 @@ func OrganizationMenu(dbConn *sqlx.DB) {
 			"Update Org",
 			"Lookup Org",
 			"Delete Org",
+			"List Orgs",
 			"Back",
 		})
 
@@ -29,6 +30,8 @@ func OrganizationMenu(dbConn *sqlx.DB) {
 		case "4":
 			fmt.Println("Deleting Org...")
 		case "5":
+			listOrganizationsCommand(dbConn)
+		case "6":
 			return
 		}
 	}
@@ -45,4 +48,14 @@ func createOrganizationCommand(dbConn *sqlx.DB) {
 		fmt.Println(err)
 	}
 	fmt.Println("Organziation ID: ", org.ID)
+}
+
+func listOrganizationsCommand(dbConn *sqlx.DB) {
+	organizations, err := service.GetAllOrganizations(dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for _, o := range organizations {
+		fmt.Println(o.ID, o.Name)
+	}
 }

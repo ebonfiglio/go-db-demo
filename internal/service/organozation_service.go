@@ -16,3 +16,12 @@ func CreateOrganization(o *domain.Organization, dbConn *sqlx.DB) (*domain.Organi
 	}
 	return org, err
 }
+
+func GetAllOrganizations(dbConn *sqlx.DB) ([]domain.Organization, error) {
+	organizationRepository := db.NewOrganizationRepository(dbConn)
+	org, err := organizationRepository.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve all organizations: %w", err)
+	}
+	return org, err
+}

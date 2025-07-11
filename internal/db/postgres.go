@@ -9,7 +9,7 @@ import (
 )
 
 func Connect() *sqlx.DB {
-	connStr := "host=localhost port=5432 user=postgres password=admin dbname=go-db-demo sslmode=disable"
+	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=go-db-demo sslmode=disable"
 
 	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {

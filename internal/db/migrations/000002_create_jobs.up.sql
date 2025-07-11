@@ -4,5 +4,3 @@ CREATE TABLE jobs (
     organization_id INTEGER NOT NULL REFERENCES organizations(id)
 );
 
-ALTER TABLE users
-ADD COLUMN job_id INTEGER REFERENCES jobs(id);
