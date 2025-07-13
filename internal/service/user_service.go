@@ -16,3 +16,15 @@ func CreateUser(u *domain.User, dbConn *sqlx.DB) (*domain.User, error) {
 	}
 	return user, err
 }
+
+func GetAllUsers(dbConn *sqlx.DB) ([]domain.User, error) {
+	r := db.NewUserRepository(dbConn)
+
+	users, err := r.GetAllUsers()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve all users: %w", err)
+	}
+
+	return users, err
+}

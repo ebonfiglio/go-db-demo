@@ -21,7 +21,17 @@ func (r *UserRepository) InsertUser(u *domain.User) (*domain.User, error) {
 		u.Name,
 	)
 	if err != nil {
-		return nil, err
+		return createdUser, err
 	}
 	return createdUser, nil
+}
+
+func (r UserRepository) GetAllUsers() ([]domain.User, error) {
+	users := make([]domain.User, 0)
+	err := r.db.Select(&users, "SELECT id, name, job_id, organization_id from users")
+	if err != nil {
+		return users, err
+	}
+
+	return users, err
 }

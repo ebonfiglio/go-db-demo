@@ -15,7 +15,7 @@ func NewJobRepository(db *sqlx.DB) *JobRepository {
 	return &JobRepository{db}
 }
 
-func (r JobRepository) InsertJob(j *domain.Job, db sqlx.DB) (*domain.Job, error) {
+func (r JobRepository) InsertJob(j *domain.Job) (*domain.Job, error) {
 	createdJob := &domain.Job{}
 	err := r.db.Get(createdJob,
 		`INSERT INTO jobs (name, organization_id)
@@ -27,4 +27,15 @@ func (r JobRepository) InsertJob(j *domain.Job, db sqlx.DB) (*domain.Job, error)
 		log.Fatal(err)
 	}
 	return createdJob, err
+}
+
+func (r JobRepository) GetAllJobs() ([]domain.Job, error) {
+	jobs := make([]domain.Job, 0)
+
+	err := r.db.Select(&jobs, "SELECT id, name, organization_id from jobs")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return jobs, err
 }

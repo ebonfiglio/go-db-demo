@@ -15,6 +15,7 @@ func JobMenu(dbConn *sqlx.DB) {
 			"Update Job",
 			"Lookup Job",
 			"Delete Job",
+			"Get All Jobs",
 			"Back",
 		})
 
@@ -29,6 +30,8 @@ func JobMenu(dbConn *sqlx.DB) {
 		case "4":
 			fmt.Println("Deleting Job...")
 		case "5":
+			getAllJobsCommand(dbConn)
+		case "6":
 			return
 		}
 	}
@@ -45,4 +48,15 @@ func createJobCommand(dbConn *sqlx.DB) {
 		fmt.Println(err)
 	}
 	fmt.Println("Job ID: ", job.ID)
+}
+
+func getAllJobsCommand(dbConn *sqlx.DB) {
+	jobs, err := service.GetAllJobs(dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for _, j := range jobs {
+		fmt.Println(j.ID, j.Name, j.OrganizationID)
+	}
 }

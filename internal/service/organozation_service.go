@@ -9,8 +9,8 @@ import (
 )
 
 func CreateOrganization(o *domain.Organization, dbConn *sqlx.DB) (*domain.Organization, error) {
-	organizationRepository := db.NewOrganizationRepository(dbConn)
-	org, err := organizationRepository.InsertOrganization(o)
+	r := db.NewOrganizationRepository(dbConn)
+	org, err := r.InsertOrganization(o)
 	if err != nil {
 		return nil, fmt.Errorf("could not create organization: %w", err)
 	}
@@ -18,8 +18,8 @@ func CreateOrganization(o *domain.Organization, dbConn *sqlx.DB) (*domain.Organi
 }
 
 func GetAllOrganizations(dbConn *sqlx.DB) ([]domain.Organization, error) {
-	organizationRepository := db.NewOrganizationRepository(dbConn)
-	org, err := organizationRepository.GetAll()
+	r := db.NewOrganizationRepository(dbConn)
+	org, err := r.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve all organizations: %w", err)
 	}
