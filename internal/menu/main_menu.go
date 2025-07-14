@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -26,4 +27,19 @@ func getNewEntityInput() string {
 
 	json = strings.TrimSpace(json)
 	return json
+}
+
+func getId() int64 {
+	fmt.Println("Enter Id:")
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+
+	input = strings.TrimSpace(input)
+	id, err := strconv.Atoi(input)
+	if err != nil {
+		fmt.Println("Invalid id:", err)
+		return 0
+	}
+
+	return int64(id)
 }

@@ -25,3 +25,12 @@ func GetAllOrganizations(dbConn *sqlx.DB) ([]domain.Organization, error) {
 	}
 	return org, err
 }
+
+func GetOrganization(id int64, dbConn *sqlx.DB) (*domain.Organization, error) {
+	r := db.NewOrganizationRepository(dbConn)
+	org, err := r.GetOrganization(id)
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve organization: %w", err)
+	}
+	return org, err
+}

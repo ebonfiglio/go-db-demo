@@ -28,3 +28,13 @@ func GetAllJobs(dbConn *sqlx.DB) ([]domain.Job, error) {
 
 	return jobs, err
 }
+
+func GetJob(id int64, dbConn sqlx.DB) (*domain.Job, error) {
+	r := db.NewJobRepository(&dbConn)
+
+	job, err := r.GetJob(id)
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve job: %w", err)
+	}
+	return job, err
+}

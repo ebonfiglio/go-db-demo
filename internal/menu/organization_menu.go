@@ -26,7 +26,7 @@ func OrganizationMenu(dbConn *sqlx.DB) {
 		case "2":
 			fmt.Println("Updating Org...")
 		case "3":
-			fmt.Println("Looking up Org...")
+			getOrganizationCommand(dbConn)
 		case "4":
 			fmt.Println("Deleting Org...")
 		case "5":
@@ -58,4 +58,16 @@ func listOrganizationsCommand(dbConn *sqlx.DB) {
 	for _, o := range organizations {
 		fmt.Println(o.ID, o.Name)
 	}
+}
+
+func getOrganizationCommand(dbConn *sqlx.DB) {
+	id := getId()
+	if id == 0 {
+		return
+	}
+	organization, err := service.GetOrganization(id, dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(organization.ID, organization.Name)
 }

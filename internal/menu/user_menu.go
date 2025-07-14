@@ -26,7 +26,7 @@ func UserMenu(dbConn *sqlx.DB) {
 		case "2":
 			fmt.Println("Updating User...")
 		case "3":
-			fmt.Println("Looking up User...")
+			getUserCommand(dbConn)
 		case "4":
 			fmt.Println("Deleting User...")
 		case "5":
@@ -59,4 +59,17 @@ func getAllUsersCommand(dbConn *sqlx.DB) {
 	for _, u := range users {
 		fmt.Println(u.ID, u.Name, u.JobID, u.OrganizationID)
 	}
+}
+
+func getUserCommand(dbConn *sqlx.DB) {
+	id := getId()
+	if id == 0 {
+		return
+	}
+	user, err := service.GetUser(id, *dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(user.ID, user.Name, user.JobID, user.OrganizationID)
+
 }

@@ -28,3 +28,13 @@ func GetAllUsers(dbConn *sqlx.DB) ([]domain.User, error) {
 
 	return users, err
 }
+
+func GetUser(id int64, dbConn sqlx.DB) (*domain.User, error) {
+	r := db.NewUserRepository(&dbConn)
+
+	user, err := r.GetUser(id)
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve user: %w", err)
+	}
+	return user, err
+}

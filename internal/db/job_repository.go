@@ -39,3 +39,13 @@ func (r JobRepository) GetAllJobs() ([]domain.Job, error) {
 
 	return jobs, err
 }
+
+func (r JobRepository) GetJob(id int64) (*domain.Job, error) {
+	job := &domain.Job{}
+	err := r.db.Get(job, "SELECT id, name, organization_id FROM jobs WHERE id = $1", id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return job, err
+}

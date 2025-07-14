@@ -35,3 +35,12 @@ func (r OrganizationRepository) GetAll() ([]domain.Organization, error) {
 	}
 	return organizations, err
 }
+
+func (r OrganizationRepository) GetOrganization(id int64) (*domain.Organization, error) {
+	organization := &domain.Organization{}
+	err := r.db.Get(organization, "SELECT id, name FROM organizations WHERE id = $1", id)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return organization, err
+}
