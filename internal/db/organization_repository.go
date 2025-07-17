@@ -24,7 +24,7 @@ func (r OrganizationRepository) InsertOrganization(o *domain.Organization) (*dom
 	if err != nil {
 		log.Fatal(err)
 	}
-	return createdOrganization, err
+	return createdOrganization, nil
 }
 
 func (r OrganizationRepository) GetAll() ([]domain.Organization, error) {
@@ -33,7 +33,7 @@ func (r OrganizationRepository) GetAll() ([]domain.Organization, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return organizations, err
+	return organizations, nil
 }
 
 func (r OrganizationRepository) GetOrganization(id int64) (*domain.Organization, error) {
@@ -42,5 +42,17 @@ func (r OrganizationRepository) GetOrganization(id int64) (*domain.Organization,
 	if err != nil {
 		log.Fatal(err)
 	}
-	return organization, err
+	return organization, nil
+}
+
+func (r OrganizationRepository) UpdateOrganization(o *domain.Organization) (*domain.Organization, error) {
+	updatedOrganization := &domain.Organization{}
+
+	err := r.db.Get(updatedOrganization, "UPDATE organizations SET name = $1 WHERe id = $2 RETURNING id, name", o.Name, o.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return updatedOrganization, nil
+
 }

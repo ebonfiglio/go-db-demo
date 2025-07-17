@@ -20,8 +20,8 @@ func DisplayMenuOptions(options []string) string {
 	return strings.TrimSpace(choice)
 }
 
-func getNewEntityInput() string {
-	fmt.Println("Enter new entity as JSON:")
+func getEntityInput() string {
+	fmt.Println("Enter entity as JSON:")
 	reader := bufio.NewReader(os.Stdin)
 	json, _ := reader.ReadString('\n')
 

@@ -38,7 +38,7 @@ func JobMenu(dbConn *sqlx.DB) {
 }
 
 func createJobCommand(dbConn *sqlx.DB) {
-	newJobValues := getNewEntityInput()
+	newJobValues := getEntityInput()
 	job, err := domain.JsonToJob(newJobValues)
 	if err != nil {
 		fmt.Println(err)

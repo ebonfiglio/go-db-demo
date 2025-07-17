@@ -24,7 +24,8 @@ func OrganizationMenu(dbConn *sqlx.DB) {
 			createOrganizationCommand(dbConn)
 			fmt.Println("Success!")
 		case "2":
-			fmt.Println("Updating Org...")
+			updateOrganizationCommand(dbConn)
+			fmt.Println("Success!")
 		case "3":
 			getOrganizationCommand(dbConn)
 		case "4":
@@ -38,7 +39,7 @@ func OrganizationMenu(dbConn *sqlx.DB) {
 }
 
 func createOrganizationCommand(dbConn *sqlx.DB) {
-	newOrgValues := getNewEntityInput()
+	newOrgValues := getEntityInput()
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
@@ -70,4 +71,18 @@ func getOrganizationCommand(dbConn *sqlx.DB) {
 		fmt.Println(err)
 	}
 	fmt.Println(organization.ID, organization.Name)
+}
+
+func updateOrganizationCommand(dbConn *sqlx.DB) {
+	newOrgValues := getEntityInput()
+	org, err := domain.JsonToOrganization(newOrgValues)
+	if err != nil {
+		fmt.Println(err)
+	}
+	org, err = service.UpdateOrganization(org, dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Organziation ID: ", org.ID)
+	fmt.Println("Organziation Name: ", org.Name)
 }

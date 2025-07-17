@@ -38,7 +38,7 @@ func UserMenu(dbConn *sqlx.DB) {
 }
 
 func createUserCommand(dbConn *sqlx.DB) {
-	newUserValues := getNewEntityInput()
+	newUserValues := getEntityInput()
 	user, err := domain.JsonToUser(newUserValues)
 	if err != nil {
 		fmt.Println(err)
