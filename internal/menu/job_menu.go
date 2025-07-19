@@ -24,7 +24,8 @@ func JobMenu(dbConn *sqlx.DB) {
 			createJobCommand(dbConn)
 			fmt.Println("Success!")
 		case "2":
-			fmt.Println("Updating Job...")
+			updateJobCommand(dbConn)
+			fmt.Println("Success!")
 		case "3":
 			getJobCommand(dbConn)
 		case "4":
@@ -66,10 +67,25 @@ func getJobCommand(dbConn *sqlx.DB) {
 	if id == 0 {
 		return
 	}
-	job, err := service.GetJob(id, *dbConn)
+	job, err := service.GetJob(id, dbConn)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(job.ID, job.Name, job.OrganizationID)
 
+}
+
+func updateJobCommand(dbConn *sqlx.DB) {
+	newJobValues := getEntityInput()
+	job, err := domain.JsonToJob(newJobValues)
+	if err != nil {
+		fmt.Println(err)
+	}
+	job, err = service.UpdateJob(job, dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Job ID: ", job.ID)
+	fmt.Println("Job Name: ", job.Name)
+	fmt.Println("Job Org ID: ", job.OrganizationID)
 }

@@ -38,3 +38,13 @@ func GetUser(id int64, dbConn sqlx.DB) (*domain.User, error) {
 	}
 	return user, err
 }
+
+func UpdateUser(u *domain.User, dbConn *sqlx.DB) (*domain.User, error) {
+	r := db.NewUserRepository(dbConn)
+
+	user, err := r.UpdateUser(u)
+	if err != nil {
+		return nil, fmt.Errorf("could not update user: %w", err)
+	}
+	return user, err
+}

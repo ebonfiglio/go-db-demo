@@ -26,7 +26,7 @@ func (r JobRepository) InsertJob(j *domain.Job) (*domain.Job, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return createdJob, err
+	return createdJob, nil
 }
 
 func (r JobRepository) GetAllJobs() ([]domain.Job, error) {
@@ -37,7 +37,7 @@ func (r JobRepository) GetAllJobs() ([]domain.Job, error) {
 		log.Fatal(err)
 	}
 
-	return jobs, err
+	return jobs, nil
 }
 
 func (r JobRepository) GetJob(id int64) (*domain.Job, error) {
@@ -47,5 +47,14 @@ func (r JobRepository) GetJob(id int64) (*domain.Job, error) {
 		log.Fatal(err)
 	}
 
-	return job, err
+	return job, nil
+}
+
+func (r JobRepository) UpdateJob(j *domain.Job) (*domain.Job, error) {
+	updatedJob := &domain.Job{}
+	err := r.db.Get(updatedJob, "UPDATE jobs set name = $1, organization_id = $2 WHERE id = $3 RETURNING id, name, organization_id", j.Name, j.OrganizationID, j.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return updatedJob, nil
 }

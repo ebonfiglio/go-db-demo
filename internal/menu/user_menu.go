@@ -24,7 +24,8 @@ func UserMenu(dbConn *sqlx.DB) {
 			createUserCommand(dbConn)
 			fmt.Println("Success!")
 		case "2":
-			fmt.Println("Updating User...")
+			updateUserCommand(dbConn)
+			fmt.Println("Success!")
 		case "3":
 			getUserCommand(dbConn)
 		case "4":
@@ -72,4 +73,20 @@ func getUserCommand(dbConn *sqlx.DB) {
 	}
 	fmt.Println(user.ID, user.Name, user.JobID, user.OrganizationID)
 
+}
+
+func updateUserCommand(dbConn *sqlx.DB) {
+	newUserValues := getEntityInput()
+	user, err := domain.JsonToUser(newUserValues)
+	if err != nil {
+		fmt.Println(err)
+	}
+	user, err = service.UpdateUser(user, dbConn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("User ID: ", user.ID)
+	fmt.Println("User Name: ", user.Name)
+	fmt.Println("User Job ID: ", user.JobID)
+	fmt.Println("User Org ID: ", user.OrganizationID)
 }

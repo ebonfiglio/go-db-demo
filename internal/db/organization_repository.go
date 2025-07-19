@@ -48,7 +48,7 @@ func (r OrganizationRepository) GetOrganization(id int64) (*domain.Organization,
 func (r OrganizationRepository) UpdateOrganization(o *domain.Organization) (*domain.Organization, error) {
 	updatedOrganization := &domain.Organization{}
 
-	err := r.db.Get(updatedOrganization, "UPDATE organizations SET name = $1 WHERe id = $2 RETURNING id, name", o.Name, o.ID)
+	err := r.db.Get(updatedOrganization, "UPDATE organizations SET name = $1 WHERE id = $2 RETURNING id, name", o.Name, o.ID)
 	if err != nil {
 		log.Fatal(err)
 	}

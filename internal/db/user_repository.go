@@ -24,7 +24,7 @@ func (r *UserRepository) InsertUser(u *domain.User) (*domain.User, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return createdUser, err
+	return createdUser, nil
 }
 
 func (r UserRepository) GetAllUsers() ([]domain.User, error) {
@@ -34,7 +34,7 @@ func (r UserRepository) GetAllUsers() ([]domain.User, error) {
 		log.Fatal(err)
 	}
 
-	return users, err
+	return users, nil
 }
 
 func (r UserRepository) GetUser(id int64) (*domain.User, error) {
@@ -44,5 +44,14 @@ func (r UserRepository) GetUser(id int64) (*domain.User, error) {
 		log.Fatal(err)
 	}
 
-	return user, err
+	return user, nil
+}
+
+func (r UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
+	updatedUser := &domain.User{}
+	err := r.db.Get(updatedUser, "UPDATE users set name = $1, job_id = $2, organization_id = $3 WHERE id = $4 RETURNING id, name, job_id, organization_id", u.Name, u.JobID, u.OrganizationID, u.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return updatedUser, nil
 }
