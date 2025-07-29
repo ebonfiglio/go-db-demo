@@ -57,12 +57,11 @@ func (r OrganizationRepository) UpdateOrganization(o *domain.Organization) (*dom
 
 }
 
-func (r OrganizationRepository) DeleteOrganization(id int64) (bool, error) {
-	_, err := r.db.Exec("DELETE organizations WHERE id = $1", id)
+func (r OrganizationRepository) DeleteOrganization(id int64) (int64, error) {
+	result, err := r.db.Exec("DELETE organizations WHERE id = $1", id)
 	if err != nil {
 		log.Fatal(err)
-		return false, err
 	}
 
-	return true, nil
+	return result.RowsAffected()
 }
