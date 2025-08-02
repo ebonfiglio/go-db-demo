@@ -3,12 +3,9 @@ package menu
 import (
 	"fmt"
 	"go-db-demo/internal/domain"
-	"go-db-demo/internal/service"
-
-	"github.com/jmoiron/sqlx"
 )
 
-func UserMenu(dbConn *sqlx.DB) {
+func UserMenu(userService domain.UserService) {
 	for {
 		choice := DisplayMenuOptions([]string{
 			"Create User",
@@ -21,38 +18,38 @@ func UserMenu(dbConn *sqlx.DB) {
 
 		switch choice {
 		case "1":
-			createUserCommand(dbConn)
+			createUserCommand(userService)
 			fmt.Println("Success!")
 		case "2":
-			updateUserCommand(dbConn)
+			updateUserCommand(userService)
 			fmt.Println("Success!")
 		case "3":
-			getUserCommand(dbConn)
+			getUserCommand(userService)
 		case "4":
 			fmt.Println("Deleting User...")
 		case "5":
-			getAllUsersCommand(dbConn)
+			getAllUsersCommand(userService)
 		case "6":
 			return
 		}
 	}
 }
 
-func createUserCommand(dbConn *sqlx.DB) {
+func createUserCommand(userService domain.UserService) {
 	newUserValues := getEntityInput()
 	user, err := domain.JsonToUser(newUserValues)
 	if err != nil {
 		fmt.Println(err)
 	}
-	user, err = service.CreateUser(user, dbConn)
+	user, err = userService.CreateUser(user)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("User ID: ", user.ID)
 }
 
-func getAllUsersCommand(dbConn *sqlx.DB) {
-	users, err := service.GetAllUsers(dbConn)
+func getAllUsersCommand(userService domain.UserService) {
+	users, err := userService.GetAllUsers()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -62,12 +59,12 @@ func getAllUsersCommand(dbConn *sqlx.DB) {
 	}
 }
 
-func getUserCommand(dbConn *sqlx.DB) {
+func getUserCommand(userService domain.UserService) {
 	id := getId()
 	if id == 0 {
 		return
 	}
-	user, err := service.GetUser(id, dbConn)
+	user, err := userService.GetUser(id)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -75,13 +72,13 @@ func getUserCommand(dbConn *sqlx.DB) {
 
 }
 
-func updateUserCommand(dbConn *sqlx.DB) {
+func updateUserCommand(userService domain.UserService) {
 	newUserValues := getEntityInput()
 	user, err := domain.JsonToUser(newUserValues)
 	if err != nil {
 		fmt.Println(err)
 	}
-	user, err = service.UpdateUser(user, dbConn)
+	user, err = userService.UpdateUser(user)
 	if err != nil {
 		fmt.Println(err)
 	}

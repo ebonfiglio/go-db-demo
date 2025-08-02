@@ -58,7 +58,7 @@ func (r OrganizationRepository) UpdateOrganization(o *domain.Organization) (*dom
 }
 
 func (r OrganizationRepository) DeleteOrganization(id int64) (int64, error) {
-	result, err := r.db.Exec("DELETE organizations WHERE id = $1", id)
+	result, err := r.db.Exec("DELETE FROM organizations WHERE id = $1", id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete organization: %w", err)
 	}

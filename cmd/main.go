@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-db-demo/internal/db"
 	"go-db-demo/internal/menu"
+	"go-db-demo/internal/service"
 )
 
 var commands = map[string]string{
@@ -27,6 +28,9 @@ func main() {
 	dbConn := db.Connect()
 	defer dbConn.Close()
 
+	userRepo := db.NewUserRepository(dbConn)
+	userService := service.NewUserService(userRepo)
+
 	fmt.Println("Welcome to the Management System")
 
 	for {
@@ -38,7 +42,7 @@ func main() {
 		case "2":
 			menu.JobMenu(dbConn)
 		case "3":
-			menu.UserMenu(dbConn)
+			menu.UserMenu(userService)
 		case "4":
 			fmt.Println("Goodbye!")
 			return

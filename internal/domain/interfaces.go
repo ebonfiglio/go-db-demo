@@ -5,7 +5,7 @@ type UserRepository interface {
 	GetAllUsers() ([]User, error)
 	GetUser(id int64) (*User, error)
 	UpdateUser(u *User) (*User, error)
-	DeleteUser(id int64) error
+	//DeleteUser(id int64) error
 }
 
 type OrganizationRepository interface {
@@ -21,7 +21,7 @@ type JobRepository interface {
 	GetAllJobs() ([]Job, error)
 	GetJob(id int64) (*Job, error)
 	UpdateJob(j *Job) (*Job, error)
-	DeleteJob(id int64) error
+	//DeleteJob(id int64) error
 }
 
 type UserService interface {
@@ -29,7 +29,7 @@ type UserService interface {
 	GetAllUsers() ([]User, error)
 	GetUser(id int64) (*User, error)
 	UpdateUser(u *User) (*User, error)
-	DeleteUser(id int64) error
+	//DeleteUser(id int64) error
 }
 
 type OrganizationService interface {
@@ -45,5 +45,5 @@ type JobService interface {
 	GetAllJobs() ([]Job, error)
 	GetJob(id int64) (*Job, error)
 	UpdateJob(j *Job) (*Job, error)
-	DeleteJob(id int64) error
+	//DeleteJob(id int64) error
 }
