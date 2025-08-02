@@ -1,8 +1,8 @@
 package db
 
 import (
+	"fmt"
 	"go-db-demo/internal/domain"
-	"log"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -22,7 +22,7 @@ func (r OrganizationRepository) InsertOrganization(o *domain.Organization) (*dom
 		o.Name,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to insert organization: %w", err)
 	}
 	return createdOrganization, nil
 }
@@ -31,7 +31,7 @@ func (r OrganizationRepository) GetAll() ([]domain.Organization, error) {
 	organizations := make([]domain.Organization, 0)
 	err := r.db.Select(&organizations, "select id, name from organizations")
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to get all organizations: %w", err)
 	}
 	return organizations, nil
 }
@@ -40,7 +40,7 @@ func (r OrganizationRepository) GetOrganization(id int64) (*domain.Organization,
 	organization := &domain.Organization{}
 	err := r.db.Get(organization, "SELECT id, name FROM organizations WHERE id = $1", id)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to get organization: %w", err)
 	}
 	return organization, nil
 }
@@ -50,7 +50,7 @@ func (r OrganizationRepository) UpdateOrganization(o *domain.Organization) (*dom
 
 	err := r.db.Get(updatedOrganization, "UPDATE organizations SET name = $1 WHERE id = $2 RETURNING id, name", o.Name, o.ID)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to update organization: %w", err)
 	}
 
 	return updatedOrganization, nil
@@ -60,7 +60,7 @@ func (r OrganizationRepository) UpdateOrganization(o *domain.Organization) (*dom
 func (r OrganizationRepository) DeleteOrganization(id int64) (int64, error) {
 	result, err := r.db.Exec("DELETE organizations WHERE id = $1", id)
 	if err != nil {
-		log.Fatal(err)
+		return 0, fmt.Errorf("failed to delete organization: %w", err)
 	}
 
 	return result.RowsAffected()

@@ -1,8 +1,8 @@
 package db
 
 import (
+	"fmt"
 	"go-db-demo/internal/domain"
-	"log"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -22,7 +22,7 @@ func (r *UserRepository) InsertUser(u *domain.User) (*domain.User, error) {
 		u.Name,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to insert user: %w", err)
 	}
 	return createdUser, nil
 }
@@ -31,7 +31,7 @@ func (r UserRepository) GetAllUsers() ([]domain.User, error) {
 	users := make([]domain.User, 0)
 	err := r.db.Select(&users, "SELECT id, name, job_id, organization_id from users")
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to get all users: %w", err)
 	}
 
 	return users, nil
@@ -41,7 +41,7 @@ func (r UserRepository) GetUser(id int64) (*domain.User, error) {
 	user := &domain.User{}
 	err := r.db.Get(user, "SELECT id, name, job_id, organization_id FROM users WHERE id = $1", id)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
 	return user, nil
@@ -51,7 +51,7 @@ func (r UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
 	updatedUser := &domain.User{}
 	err := r.db.Get(updatedUser, "UPDATE users set name = $1, job_id = $2, organization_id = $3 WHERE id = $4 RETURNING id, name, job_id, organization_id", u.Name, u.JobID, u.OrganizationID, u.ID)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 	return updatedUser, nil
 }

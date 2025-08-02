@@ -1,8 +1,8 @@
 package db
 
 import (
+	"fmt"
 	"go-db-demo/internal/domain"
-	"log"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -24,7 +24,7 @@ func (r JobRepository) InsertJob(j *domain.Job) (*domain.Job, error) {
 		j.Name, j.OrganizationID,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to insert job: %w", err)
 	}
 	return createdJob, nil
 }
@@ -34,7 +34,7 @@ func (r JobRepository) GetAllJobs() ([]domain.Job, error) {
 
 	err := r.db.Select(&jobs, "SELECT id, name, organization_id from jobs")
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to get all jobs: %w", err)
 	}
 
 	return jobs, nil
@@ -44,7 +44,7 @@ func (r JobRepository) GetJob(id int64) (*domain.Job, error) {
 	job := &domain.Job{}
 	err := r.db.Get(job, "SELECT id, name, organization_id FROM jobs WHERE id = $1", id)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
 
 	return job, nil
@@ -54,7 +54,7 @@ func (r JobRepository) UpdateJob(j *domain.Job) (*domain.Job, error) {
 	updatedJob := &domain.Job{}
 	err := r.db.Get(updatedJob, "UPDATE jobs set name = $1, organization_id = $2 WHERE id = $3 RETURNING id, name, organization_id", j.Name, j.OrganizationID, j.ID)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to update job: %w", err)
 	}
 	return updatedJob, nil
 }

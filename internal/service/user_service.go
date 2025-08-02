@@ -2,49 +2,48 @@ package service
 
 import (
 	"fmt"
-	"go-db-demo/internal/db"
 	"go-db-demo/internal/domain"
 
 	"github.com/jmoiron/sqlx"
 )
 
-func CreateUser(u *domain.User, dbConn *sqlx.DB) (*domain.User, error) {
-	userRepository := db.NewUserRepository(dbConn)
-	user, err := userRepository.InsertUser(u)
+type UserService struct {
+	userRepo domain.UserRepository
+}
+
+func NewUserService(userRepo domain.UserRepository) *UserService {
+	return &UserService{userRepo: userRepo}
+}
+
+func (s *UserService) CreateUser(u *domain.User, dbConn *sqlx.DB) (*domain.User, error) {
+	user, err := s.userRepo.InsertUser(u)
 	if err != nil {
 		return nil, fmt.Errorf("could not create user: %w", err)
 	}
-	return user, err
+	return user, nil
 }
 
-func GetAllUsers(dbConn *sqlx.DB) ([]domain.User, error) {
-	r := db.NewUserRepository(dbConn)
-
-	users, err := r.GetAllUsers()
-
+func (s *UserService) GetAllUsers(dbConn *sqlx.DB) ([]domain.User, error) {
+	users, err := s.userRepo.GetAllUsers()
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve all users: %w", err)
 	}
 
-	return users, err
+	return users, nil
 }
 
-func GetUser(id int64, dbConn sqlx.DB) (*domain.User, error) {
-	r := db.NewUserRepository(&dbConn)
-
-	user, err := r.GetUser(id)
+func (s *UserService) GetUser(id int64, dbConn *sqlx.DB) (*domain.User, error) {
+	user, err := s.userRepo.GetUser(id)
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve user: %w", err)
 	}
-	return user, err
+	return user, nil
 }
 
-func UpdateUser(u *domain.User, dbConn *sqlx.DB) (*domain.User, error) {
-	r := db.NewUserRepository(dbConn)
-
-	user, err := r.UpdateUser(u)
+func (s *UserService) UpdateUser(u *domain.User, dbConn *sqlx.DB) (*domain.User, error) {
+	user, err := s.userRepo.UpdateUser(u)
 	if err != nil {
 		return nil, fmt.Errorf("could not update user: %w", err)
 	}
-	return user, err
+	return user, nil
 }

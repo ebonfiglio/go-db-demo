@@ -67,7 +67,7 @@ func getUserCommand(dbConn *sqlx.DB) {
 	if id == 0 {
 		return
 	}
-	user, err := service.GetUser(id, *dbConn)
+	user, err := service.GetUser(id, dbConn)
 	if err != nil {
 		fmt.Println(err)
 	}
