@@ -36,7 +36,6 @@ func (r JobRepository) GetAllJobs() ([]domain.Job, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all jobs: %w", err)
 	}
-
 	return jobs, nil
 }
 
@@ -46,7 +45,6 @@ func (r JobRepository) GetJob(id int64) (*domain.Job, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
-
 	return job, nil
 }
 
@@ -57,4 +55,12 @@ func (r JobRepository) UpdateJob(j *domain.Job) (*domain.Job, error) {
 		return nil, fmt.Errorf("failed to update job: %w", err)
 	}
 	return updatedJob, nil
+}
+
+func (r JobRepository) DeleteJob(id int64) (int64, error) {
+	result, err := r.db.Exec("DELETE FROM jobs WHERE id = %d", id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete job: %w", err)
+	}
+	return result.RowsAffected()
 }

@@ -33,7 +33,6 @@ func (r UserRepository) GetAllUsers() ([]domain.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all users: %w", err)
 	}
-
 	return users, nil
 }
 
@@ -43,7 +42,6 @@ func (r UserRepository) GetUser(id int64) (*domain.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
-
 	return user, nil
 }
 
@@ -54,4 +52,12 @@ func (r UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 	return updatedUser, nil
+}
+
+func (r UserRepository) DeleteUser(id int64) (int64, error) {
+	result, err := r.db.Exec("DELETE FROM users WHERE id = %d", id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete user: %w", err)
+	}
+	return result.RowsAffected()
 }

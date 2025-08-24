@@ -8,6 +8,14 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type OrganizationService struct{
+	orgRepo domain.OrganizationRepository
+}
+
+func NewOrganizationService(orgRepo domain.OrganizationRepository)) *OrganizationService{
+	return &OrganizationService{orgRepo: orgRepo}
+}
+
 func CreateOrganization(o *domain.Organization, dbConn *sqlx.DB) (*domain.Organization, error) {
 	r := db.NewOrganizationRepository(dbConn)
 	org, err := r.InsertOrganization(o)
