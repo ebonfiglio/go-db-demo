@@ -27,6 +27,7 @@ func OrganizationMenu(organizationService domain.OrganizationService) {
 			getOrganizationCommand(organizationService)
 		case "4":
 			fmt.Println("Deleting Org...")
+			deleteOrganizationCommand(organizationService)
 		case "5":
 			listOrganizationsCommand(organizationService)
 		case "6":
@@ -82,4 +83,18 @@ func updateOrganizationCommand(organizationService domain.OrganizationService) {
 	}
 	fmt.Println("Organziation ID: ", org.ID)
 	fmt.Println("Organziation Name: ", org.Name)
+}
+
+func deleteOrganizationCommand(organizationService domain.OrganizationService) {
+	id := getId()
+	if id == 0 {
+		return
+	}
+
+	_, err := organizationService.DeleteOrganization(id)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Organization deleted!")
 }

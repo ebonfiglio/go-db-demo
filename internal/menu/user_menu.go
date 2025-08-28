@@ -27,6 +27,7 @@ func UserMenu(userService domain.UserService) {
 			getUserCommand(userService)
 		case "4":
 			fmt.Println("Deleting User...")
+			deleteUserCommand(userService)
 		case "5":
 			getAllUsersCommand(userService)
 		case "6":
@@ -86,4 +87,18 @@ func updateUserCommand(userService domain.UserService) {
 	fmt.Println("User Name: ", user.Name)
 	fmt.Println("User Job ID: ", user.JobID)
 	fmt.Println("User Org ID: ", user.OrganizationID)
+}
+
+func deleteUserCommand(userService domain.UserService) {
+	id := getId()
+	if id == 0 {
+		return
+	}
+
+	_, err := userService.DeleteUser(id)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("User deleted!")
 }

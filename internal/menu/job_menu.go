@@ -3,12 +3,9 @@ package menu
 import (
 	"fmt"
 	"go-db-demo/internal/domain"
-	"go-db-demo/internal/service"
-
-	"github.com/jmoiron/sqlx"
 )
 
-func JobMenu(dbConn *sqlx.DB) {
+func JobMenu(jobService domain.JobService) {
 	for {
 		choice := DisplayMenuOptions([]string{
 			"Create Job",
@@ -21,40 +18,44 @@ func JobMenu(dbConn *sqlx.DB) {
 
 		switch choice {
 		case "1":
-			createJobCommand(dbConn)
+			createJobCommand(jobService)
 			fmt.Println("Success!")
 		case "2":
-			updateJobCommand(dbConn)
+			updateJobCommand(jobService)
 			fmt.Println("Success!")
 		case "3":
-			getJobCommand(dbConn)
+			getJobCommand(jobService)
 		case "4":
 			fmt.Println("Deleting Job...")
+			deleteJobCommand(jobService)
 		case "5":
-			getAllJobsCommand(dbConn)
+			getAllJobsCommand(jobService)
 		case "6":
 			return
 		}
 	}
 }
 
-func createJobCommand(dbConn *sqlx.DB) {
+func createJobCommand(jobService domain.JobService) {
 	newJobValues := getEntityInput()
 	job, err := domain.JsonToJob(newJobValues)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
-	job, err = service.CreateJob(job, dbConn)
+	job, err = jobService.CreateJob(job)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println("Job ID: ", job.ID)
 }
 
-func getAllJobsCommand(dbConn *sqlx.DB) {
-	jobs, err := service.GetAllJobs(dbConn)
+func getAllJobsCommand(jobService domain.JobService) {
+	jobs, err := jobService.GetAllJobs()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	for _, j := range jobs {
@@ -62,30 +63,47 @@ func getAllJobsCommand(dbConn *sqlx.DB) {
 	}
 }
 
-func getJobCommand(dbConn *sqlx.DB) {
+func getJobCommand(jobService domain.JobService) {
 	id := getId()
 	if id == 0 {
 		return
 	}
-	job, err := service.GetJob(id, dbConn)
+	job, err := jobService.GetJob(id)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println(job.ID, job.Name, job.OrganizationID)
 
 }
 
-func updateJobCommand(dbConn *sqlx.DB) {
+func updateJobCommand(jobService domain.JobService) {
 	newJobValues := getEntityInput()
 	job, err := domain.JsonToJob(newJobValues)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
-	job, err = service.UpdateJob(job, dbConn)
+	job, err = jobService.UpdateJob(job)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println("Job ID: ", job.ID)
 	fmt.Println("Job Name: ", job.Name)
 	fmt.Println("Job Org ID: ", job.OrganizationID)
+}
+
+func deleteJobCommand(jobService domain.JobService) {
+	id := getId()
+	if id == 0 {
+		return
+	}
+
+	_, err := jobService.DeleteJob(id)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Job deleted!")
 }

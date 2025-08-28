@@ -48,7 +48,7 @@ func (s *OrganizationService) UpdateOrganization(o *domain.Organization) (*domai
 func (s *OrganizationService) DeleteOrganization(id int64) (int64, error) {
 	rowsAffected, err := s.orgRepo.DeleteOrganization(id)
 	if err != nil {
-		return 0, fmt.Errorf("could not update organization: %w", err)
+		return 0, fmt.Errorf("could not delete organization: %w", err)
 	}
 	return rowsAffected, nil
 }

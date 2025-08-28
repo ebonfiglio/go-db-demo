@@ -31,6 +31,9 @@ func main() {
 	userRepo := db.NewUserRepository(dbConn)
 	userService := service.NewUserService(userRepo)
 
+	jobRepo := db.NewJobRepository(dbConn)
+	jobService := service.NewJobService(jobRepo)
+
 	orgRepo := db.NewOrganizationRepository(dbConn)
 	orgService := service.NewOrganizationService(orgRepo)
 
@@ -43,7 +46,7 @@ func main() {
 		case "1":
 			menu.OrganizationMenu(orgService)
 		case "2":
-			menu.JobMenu(dbConn)
+			menu.JobMenu(jobService)
 		case "3":
 			menu.UserMenu(userService)
 		case "4":
