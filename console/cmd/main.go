@@ -7,22 +7,6 @@ import (
 	"go-db-demo/internal/service"
 )
 
-var commands = map[string]string{
-	"1":  "Create Org",
-	"2":  "Update Org",
-	"3":  "Lookup Org",
-	"4":  "Delete Org",
-	"5":  "Create Org",
-	"6":  "Update Org",
-	"7":  "Lookup Org",
-	"8":  "Delete Org",
-	"9":  "Create User",
-	"10": "Update User",
-	"11": "Lookup User",
-	"12": "Delete User",
-	"13": "Exit",
-}
-
 func main() {
 
 	dbConn := db.Connect()

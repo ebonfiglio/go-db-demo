@@ -27,7 +27,7 @@ func (r *UserRepository) InsertUser(u *domain.User) (*domain.User, error) {
 	return createdUser, nil
 }
 
-func (r UserRepository) GetAllUsers() ([]domain.User, error) {
+func (r *UserRepository) GetAllUsers() ([]domain.User, error) {
 	users := make([]domain.User, 0)
 	err := r.db.Select(&users, "SELECT id, name, job_id, organization_id from users")
 	if err != nil {
@@ -36,7 +36,7 @@ func (r UserRepository) GetAllUsers() ([]domain.User, error) {
 	return users, nil
 }
 
-func (r UserRepository) GetUser(id int64) (*domain.User, error) {
+func (r *UserRepository) GetUser(id int64) (*domain.User, error) {
 	user := &domain.User{}
 	err := r.db.Get(user, "SELECT id, name, job_id, organization_id FROM users WHERE id = $1", id)
 	if err != nil {
@@ -45,7 +45,7 @@ func (r UserRepository) GetUser(id int64) (*domain.User, error) {
 	return user, nil
 }
 
-func (r UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
+func (r *UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
 	updatedUser := &domain.User{}
 	err := r.db.Get(updatedUser, "UPDATE users set name = $1, job_id = $2, organization_id = $3 WHERE id = $4 RETURNING id, name, job_id, organization_id", u.Name, u.JobID, u.OrganizationID, u.ID)
 	if err != nil {
@@ -54,8 +54,8 @@ func (r UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
 	return updatedUser, nil
 }
 
-func (r UserRepository) DeleteUser(id int64) (int64, error) {
-	result, err := r.db.Exec("DELETE FROM users WHERE id = %d", id)
+func (r *UserRepository) DeleteUser(id int64) (int64, error) {
+	result, err := r.db.Exec("DELETE FROM users WHERE id = %1", id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete user: %w", err)
 	}

@@ -41,6 +41,7 @@ func createOrganizationCommand(organizationService domain.OrganizationService) {
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	org, err = organizationService.CreateOrganization(org)
 	if err != nil {
@@ -53,6 +54,7 @@ func listOrganizationsCommand(organizationService domain.OrganizationService) {
 	organizations, err := organizationService.GetAllOrganizations()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	for _, o := range organizations {
 		fmt.Println(o.ID, o.Name)
@@ -67,6 +69,7 @@ func getOrganizationCommand(organizationService domain.OrganizationService) {
 	organization, err := organizationService.GetOrganization(id)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println(organization.ID, organization.Name)
 }
@@ -76,10 +79,12 @@ func updateOrganizationCommand(organizationService domain.OrganizationService) {
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	org, err = organizationService.UpdateOrganization(org)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println("Organziation ID: ", org.ID)
 	fmt.Println("Organziation Name: ", org.Name)

@@ -41,10 +41,12 @@ func createUserCommand(userService domain.UserService) {
 	user, err := domain.JsonToUser(newUserValues)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	user, err = userService.CreateUser(user)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println("User ID: ", user.ID)
 }
@@ -53,6 +55,7 @@ func getAllUsersCommand(userService domain.UserService) {
 	users, err := userService.GetAllUsers()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	for _, u := range users {
@@ -68,6 +71,7 @@ func getUserCommand(userService domain.UserService) {
 	user, err := userService.GetUser(id)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println(user.ID, user.Name, user.JobID, user.OrganizationID)
 
@@ -78,10 +82,12 @@ func updateUserCommand(userService domain.UserService) {
 	user, err := domain.JsonToUser(newUserValues)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	user, err = userService.UpdateUser(user)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	fmt.Println("User ID: ", user.ID)
 	fmt.Println("User Name: ", user.Name)
