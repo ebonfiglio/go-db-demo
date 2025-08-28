@@ -3,12 +3,9 @@ package menu
 import (
 	"fmt"
 	"go-db-demo/internal/domain"
-	"go-db-demo/internal/service"
-
-	"github.com/jmoiron/sqlx"
 )
 
-func OrganizationMenu(dbConn *sqlx.DB) {
+func OrganizationMenu(organizationService domain.OrganizationService) {
 	for {
 		choice := DisplayMenuOptions([]string{
 			"Create Org",
@@ -21,38 +18,38 @@ func OrganizationMenu(dbConn *sqlx.DB) {
 
 		switch choice {
 		case "1":
-			createOrganizationCommand(dbConn)
+			createOrganizationCommand(organizationService)
 			fmt.Println("Success!")
 		case "2":
-			updateOrganizationCommand(dbConn)
+			updateOrganizationCommand(organizationService)
 			fmt.Println("Success!")
 		case "3":
-			getOrganizationCommand(dbConn)
+			getOrganizationCommand(organizationService)
 		case "4":
 			fmt.Println("Deleting Org...")
 		case "5":
-			listOrganizationsCommand(dbConn)
+			listOrganizationsCommand(organizationService)
 		case "6":
 			return
 		}
 	}
 }
 
-func createOrganizationCommand(dbConn *sqlx.DB) {
+func createOrganizationCommand(organizationService domain.OrganizationService) {
 	newOrgValues := getEntityInput()
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
 	}
-	org, err = service.CreateOrganization(org, dbConn)
+	org, err = organizationService.CreateOrganization(org)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("Organziation ID: ", org.ID)
 }
 
-func listOrganizationsCommand(dbConn *sqlx.DB) {
-	organizations, err := service.GetAllOrganizations(dbConn)
+func listOrganizationsCommand(organizationService domain.OrganizationService) {
+	organizations, err := organizationService.GetAllOrganizations()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -61,25 +58,25 @@ func listOrganizationsCommand(dbConn *sqlx.DB) {
 	}
 }
 
-func getOrganizationCommand(dbConn *sqlx.DB) {
+func getOrganizationCommand(organizationService domain.OrganizationService) {
 	id := getId()
 	if id == 0 {
 		return
 	}
-	organization, err := service.GetOrganization(id, dbConn)
+	organization, err := organizationService.GetOrganization(id)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(organization.ID, organization.Name)
 }
 
-func updateOrganizationCommand(dbConn *sqlx.DB) {
+func updateOrganizationCommand(organizationService domain.OrganizationService) {
 	newOrgValues := getEntityInput()
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
 	}
-	org, err = service.UpdateOrganization(org, dbConn)
+	org, err = organizationService.UpdateOrganization(org)
 	if err != nil {
 		fmt.Println(err)
 	}

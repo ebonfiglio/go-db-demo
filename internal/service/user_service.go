@@ -44,3 +44,11 @@ func (s *UserService) UpdateUser(u *domain.User) (*domain.User, error) {
 	}
 	return user, nil
 }
+
+func (s *UserService) DeleteUser(id int64) (int64, error) {
+	rowsAffected, err := s.userRepo.DeleteUser(id)
+	if err != nil {
+		return 0, fmt.Errorf("could not delete user: %w", err)
+	}
+	return rowsAffected, nil
+}

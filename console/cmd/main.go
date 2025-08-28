@@ -31,6 +31,9 @@ func main() {
 	userRepo := db.NewUserRepository(dbConn)
 	userService := service.NewUserService(userRepo)
 
+	orgRepo := db.NewOrganizationRepository(dbConn)
+	orgService := service.NewOrganizationService(orgRepo)
+
 	fmt.Println("Welcome to the Management System")
 
 	for {
@@ -38,7 +41,7 @@ func main() {
 
 		switch choice {
 		case "1":
-			menu.OrganizationMenu(dbConn)
+			menu.OrganizationMenu(orgService)
 		case "2":
 			menu.JobMenu(dbConn)
 		case "3":

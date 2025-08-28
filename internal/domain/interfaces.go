@@ -29,7 +29,7 @@ type UserService interface {
 	GetAllUsers() ([]User, error)
 	GetUser(id int64) (*User, error)
 	UpdateUser(u *User) (*User, error)
-	DeleteUser(id int64) error
+	DeleteUser(id int64) (int64, error)
 }
 
 type OrganizationService interface {
@@ -37,7 +37,7 @@ type OrganizationService interface {
 	GetAllOrganizations() ([]Organization, error)
 	GetOrganization(id int64) (*Organization, error)
 	UpdateOrganization(o *Organization) (*Organization, error)
-	DeleteOrganization(id int64) error
+	DeleteOrganization(id int64) (int64, error)
 }
 
 type JobService interface {
@@ -45,5 +45,5 @@ type JobService interface {
 	GetAllJobs() ([]Job, error)
 	GetJob(id int64) (*Job, error)
 	UpdateJob(j *Job) (*Job, error)
-	DeleteJob(id int64) error
+	DeleteJob(id int64) (int64, error)
 }
