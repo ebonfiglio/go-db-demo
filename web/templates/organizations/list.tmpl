@@ -1,0 +1,31 @@
+{{define "organizations/list.tmpl"}}
+<h2>Organizations</h2>
+<a href="/organizations/new">
+    <button>New Organization</button>
+</a>
+
+<table border="1" cellpadding="10" cellspacing="0">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Organizations}}
+        <tr>
+            <td>{{.ID}}</td>
+            <td><a href="/organizations/{{.ID}}">{{.Name}}</a></td>
+            <td>
+                <a href="/organizations/{{.ID}}/edit">Edit</a>
+            </td>
+        </tr>
+        {{else}}
+        <tr>
+            <td colspan="3">No organizations found</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}
