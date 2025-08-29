@@ -13,7 +13,7 @@ func NewHomeHandler() *HomeHandler {
 }
 
 func (h *HomeHandler) Index(c *gin.Context) {
-	c.HTML(http.StatusOK, "home.tmpl", gin.H{
+	c.HTML(http.StatusOK, "home.html", gin.H{
 		"Title": "Home",
 	})
 }

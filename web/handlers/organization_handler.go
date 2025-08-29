@@ -21,7 +21,7 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.tmpl", gin.H{
+		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
 			"Title": "Organizations",
 			"Error": err.Error(),
 		})
@@ -30,14 +30,14 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 
 	org, err := h.orgService.GetOrganization(id)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.tmpl", gin.H{
+		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
 			"Title": "Organizations",
 			"Error": err.Error(),
 		})
 		return
 	}
 
-	c.HTML(http.StatusOK, "organizations/index.tmpl", gin.H{
+	c.HTML(http.StatusOK, "organizations/index.html", gin.H{
 		"Title":        "Organization - " + org.Name,
 		"Organization": org,
 	})
@@ -46,21 +46,21 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 func (h *OrganizationHandler) List(c *gin.Context) {
 	orgs, err := h.orgService.GetAllOrganizations()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.tmpl", gin.H{
+		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
 			"Title": "Organizations",
 			"Error": err.Error(),
 		})
 		return
 	}
 
-	c.HTML(http.StatusOK, "organizations/list.tmpl", gin.H{
+	c.HTML(http.StatusOK, "organizations/list.html", gin.H{
 		"Title":         "Organizations",
 		"Organizations": orgs,
 	})
 }
 
 func (h *OrganizationHandler) New(c *gin.Context) {
-	c.HTML(http.StatusOK, "organizations/new.tmpl", gin.H{
+	c.HTML(http.StatusOK, "organizations/new.html", gin.H{
 		"Title": "New Organization",
 	})
 }
@@ -69,7 +69,7 @@ func (h *OrganizationHandler) Create(c *gin.Context) {
 	name := c.PostForm("name")
 
 	if name == "" {
-		c.HTML(http.StatusBadRequest, "organizations/new.tmpl", gin.H{
+		c.HTML(http.StatusBadRequest, "organizations/new.html", gin.H{
 			"Title": "New Organization",
 			"Error": "Name is required",
 		})
@@ -79,7 +79,7 @@ func (h *OrganizationHandler) Create(c *gin.Context) {
 	org := &domain.Organization{Name: name}
 	_, err := h.orgService.CreateOrganization(org)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/new.tmpl", gin.H{
+		c.HTML(http.StatusInternalServerError, "organizations/new.html", gin.H{
 			"Title": "New Organization",
 			"Error": err.Error(),
 		})
@@ -93,7 +93,7 @@ func (h *OrganizationHandler) Edit(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "organizations/edit.tmpl", gin.H{
+		c.HTML(http.StatusBadRequest, "organizations/edit.html", gin.H{
 			"Title": "Edit Organization",
 			"Error": "Invalid ID",
 		})
@@ -102,14 +102,14 @@ func (h *OrganizationHandler) Edit(c *gin.Context) {
 
 	org, err := h.orgService.GetOrganization(id)
 	if err != nil {
-		c.HTML(http.StatusNotFound, "organizations/edit.tmpl", gin.H{
+		c.HTML(http.StatusNotFound, "organizations/edit.html", gin.H{
 			"Title": "Edit Organization",
 			"Error": "Organization not found",
 		})
 		return
 	}
 
-	c.HTML(http.StatusOK, "organizations/edit.tmpl", gin.H{
+	c.HTML(http.StatusOK, "organizations/edit.html", gin.H{
 		"Title":        "Edit Organization",
 		"Organization": org,
 	})
@@ -119,7 +119,7 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "organizations/edit.tmpl", gin.H{
+		c.HTML(http.StatusBadRequest, "organizations/edit.html", gin.H{
 			"Title": "Edit Organization",
 			"Error": "Invalid ID",
 		})
@@ -129,7 +129,7 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	name := c.PostForm("name")
 	if name == "" {
 		org, _ := h.orgService.GetOrganization(id)
-		c.HTML(http.StatusBadRequest, "organizations/edit.tmpl", gin.H{
+		c.HTML(http.StatusBadRequest, "organizations/edit.html", gin.H{
 			"Title":        "Edit Organization",
 			"Organization": org,
 			"Error":        "Name is required",
@@ -140,7 +140,7 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	org := &domain.Organization{ID: id, Name: name}
 	_, err = h.orgService.UpdateOrganization(org)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/edit.tmpl", gin.H{
+		c.HTML(http.StatusInternalServerError, "organizations/edit.html", gin.H{
 			"Title":        "Edit Organization",
 			"Organization": org,
 			"Error":        err.Error(),

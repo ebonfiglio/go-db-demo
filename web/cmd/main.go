@@ -19,9 +19,8 @@ func main() {
 
 	router := gin.Default()
 
-	router.LoadHTMLGlob("web/templates/**/*.tmpl")
-	entityTemplates, _ := filepath.Glob("web/templates/**/*.tmpl")
-	homeTemplates, _ := filepath.Glob("web/templates/*.tmpl")
+	entityTemplates, _ := filepath.Glob("web/templates/**/*")
+	homeTemplates, _ := filepath.Glob("web/templates/*.html")
 
 	allTemplates := append(entityTemplates, homeTemplates...)
 	router.LoadHTMLFiles(allTemplates...)
