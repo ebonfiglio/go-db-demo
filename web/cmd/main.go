@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"go-db-demo/internal/config"
 	"go-db-demo/internal/db"
 	"go-db-demo/internal/service"
 	"go-db-demo/web/handlers"
@@ -11,6 +13,8 @@ import (
 )
 
 func main() {
+	cfg := config.LoadConfig()
+
 	dbConn := db.Connect()
 	defer dbConn.Close()
 
@@ -31,5 +35,7 @@ func main() {
 	routes.SetupHomeRoutes(router, homeHandler)
 	routes.SetupOrganizationRoutes(router, organizationHandler)
 
-	router.Run(":8080")
+	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+	fmt.Printf("Server starting on %s\n", serverAddr)
+	router.Run(serverAddr)
 }

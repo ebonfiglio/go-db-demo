@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log"
 
+	"go-db-demo/internal/config"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 func Connect() *sqlx.DB {
-	connStr := "host=localhost port=5432 user=postgres password=admin dbname=go-db-demo sslmode=disable"
+	cfg := config.LoadConfig()
+	connStr := cfg.Database.GetConnectionString()
 
 	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {
