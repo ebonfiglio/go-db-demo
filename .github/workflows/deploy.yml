@@ -1,0 +1,65 @@
+name: Deploy go-db-demo to VM (over Tailscale)
+
+on:
+  push:
+    branches: [ "main" ]   # deploys only when you push to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout source
+      - uses: actions/checkout@v4
+
+      # 2. Set up Go
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # 3. Build Linux binary
+      - name: Build go-db-demo
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+          go build -ldflags="-s -w" -o go-db-demo ./cmd/go-db-demo
+
+      # 4. Join your tailnet
+      - name: Join Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}   # from your repo secrets
+          version: stable
+
+      # 5. Add VM host key to known_hosts (avoids prompt)
+      - name: Trust VM host key
+        run: ssh-keyscan -T 15 "${{ secrets.TS_HOST }}" >> ~/.ssh/known_hosts
+
+      # 6. Load CI private key
+      - name: Load deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      # 7. Upload binary & migrations folder
+      - name: Upload app
+        run: |
+          ssh deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/db/migrations'
+          rsync -az --delete \
+            --exclude ".env" \
+            go-db-demo db/migrations/ \
+            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/
+
+      # 8. Restart the systemd service
+      - name: Restart service
+        run: |
+          ssh deploy@${{ secrets.TS_HOST }} '
+            sudo systemctl daemon-reload
+            sudo systemctl restart go-db-demo
+            systemctl --no-pager -l status go-db-demo || true
+          '
+
+      # 9. Health check (optional, ensure service responds)
+      - name: Health check
+        run: |
+          curl -fsS --retry 5 --retry-delay 3 \
+          http://${{ secrets.TS_HOST }}:8080 || exit 1
