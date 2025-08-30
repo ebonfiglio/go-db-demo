@@ -21,7 +21,7 @@ jobs:
       - name: Build go-db-demo
         run: |
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-          go build -ldflags="-s -w" -o go-db-demo ./cmd/go-db-demo
+          go build -ldflags="-s -w" -o go-db-demo ./web/cmd
 
       # 4. Join your tailnet
       - name: Join Tailscale
