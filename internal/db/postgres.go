@@ -16,12 +16,16 @@ func Connect() *sqlx.DB {
 
 	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {
-		log.Fatal("Error connecting to database:", err)
+		log.Printf("Error connecting to database: %v", err)
+		log.Printf("Warning: Database not available, some features may not work")
+		return nil
 	}
 
 	err = db.Ping()
 	if err != nil {
-		log.Fatal("Could not ping DB:", err)
+		log.Printf("Could not ping DB: %v", err)
+		log.Printf("Warning: Database not available, some features may not work")
+		return nil
 	}
 	fmt.Println("Connected to PostgreSQL!")
 
