@@ -33,12 +33,15 @@ jobs:
           version: "1.66.4"
           use-cache: 'true'
           
-      - name: Prepare SSH known_hosts
+   
+      - name: Prepare SSH
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          touch ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts    
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -T 15 "${{ secrets.TS_HOST }}" 2>/dev/null | tee -a ~/.ssh/known_hosts >/dev/null
+          cat > ~/.ssh/ci_key << 'EOF'
+          ${{ secrets.DEPLOY_SSH_KEY }}
+          EOF
+          chmod 600 ~/.ssh/ci_key    
 
       # 5. Add VM host key to known_hosts (avoids prompt)
       - name: Trust VM host key
@@ -66,19 +69,18 @@ jobs:
             
 
       - name: Run DB migrations
-        run: |
-          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
-            deploy@${{ secrets.TS_HOST }} '
-              set -e
-              cd /var/www/go-db-demo
-              set -a; . ./.env; set +a
-              for f in $(ls -1 db/migrations/*.sql 2>/dev/null | sort); do
-                echo "Applying $f"
-                PGPASSWORD="$DB_PASSWORD" psql \
-                  -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-                  -v ON_ERROR_STOP=1 -f "$f"
-              done
-            '
+        run:  |
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new deploy@${{ secrets.TS_HOST }} '
+            set -e
+            cd /var/www/go-db-demo
+            set -a; . ./.env; set +a
+            for f in $(ls -1 db/migrations/*up.sql 2>/dev/null | sort); do
+              echo "Applying $f"
+              PGPASSWORD="$DB_PASSWORD" psql \
+                -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+                -v ON_ERROR_STOP=1 -f "$f"
+            done
+          '
 
       # 8. Restart the systemd service
       - name: Restart service
