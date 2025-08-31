@@ -95,8 +95,17 @@ jobs:
       # 9. Health check
       - name: Health check (remote)
         run: |
+          set -euo pipefail
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
-            deploy@${{ secrets.TS_HOST }} 'curl -fsS http://127.0.0.1:8080/healthz || exit 1'
+            deploy@${{ secrets.TS_HOST }} '
+              code=$(curl -sS -o /tmp/hc.txt -w "%{http_code}" http://127.0.0.1:8080/healthz || true)
+              echo "HTTP $code"
+              if [ "$code" != "200" ]; then
+                echo "--- body ---"; sed -n "1,200p" /tmp/hc.txt || true
+                echo "--- recent logs ---"; journalctl -u go-db-demo -n 80 --no-pager || true
+                exit 1
+              fi
+            '
 
 
 
