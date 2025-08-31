@@ -63,27 +63,20 @@ jobs:
           
           # Test if we can reach the host
           if ! timeout 10 nc -zv $HOST 22 2>/dev/null; then
-            echo "❌ Cannot reach $HOST on port 22"
-            echo "This could be because:"
-            echo "1. Tailscale hostname is not resolvable from GitHub Actions"
-            echo "2. Server firewall is blocking connections"
-            echo "3. Server is not accessible from internet"
-            echo ""
-            echo "Solutions:"
-            echo "1. Use the server's public IP address instead of Tailscale hostname"
-            echo "2. Set up a GitHub self-hosted runner on your network"
+            echo "Cannot reach $HOST on port 22"
+            echo "Please check network connectivity and server status"
             exit 1
           fi
           
-          echo "✅ Port 22 is reachable, attempting deployment..."
+          echo "Port 22 is reachable, deploying..."
           
           # Copy binary to server
           if ! scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo deploy@$HOST:/tmp/go-db-demo-new; then
-            echo "❌ Failed to copy binary to server"
+            echo "Failed to copy binary to server"
             exit 1
           fi
           
-          echo "✅ Binary copied successfully, deploying..."
+          echo "Binary copied successfully"
           
           # Deploy on server
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@$HOST << 'EOF'
@@ -91,42 +84,92 @@ jobs:
             pkill -f go-db-demo || true
             sleep 2
             
-            # Create app directory if it doesn't exist
+            # Create app directory
             mkdir -p ~/app
             
             # Move new binary
             mv /tmp/go-db-demo-new ~/app/go-db-demo
             chmod +x ~/app/go-db-demo
             
-            # Create basic .env file if it doesn't exist
-            if [ ! -f ~/app/.env ]; then
-              cat > ~/app/.env << 'ENVEOF'
+            # Create/update .env file
+            cat > ~/app/.env << 'ENVEOF'
           SERVER_HOST=0.0.0.0
           SERVER_PORT=8080
           GIN_MODE=release
           DB_HOST=localhost
           DB_PORT=5432
-          DB_USER=go_db_demo_user
+          DB_USER=postgres
           DB_PASSWORD=deploy
           DB_NAME=go-db-demo
           DB_SSL_MODE=disable
           ENVEOF
-            fi
             
-            # Start new process in background
+            # Setup database and run migrations
+            echo "Setting up database..."
+            
+            # Create database if it doesn't exist
+            sudo -u postgres psql -c "CREATE DATABASE \"go-db-demo\";" 2>/dev/null || echo "Database already exists"
+            
+            # Create user if it doesn't exist  
+            sudo -u postgres psql -c "CREATE USER postgres;" 2>/dev/null || echo "User already exists"
+            sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'deploy';" 2>/dev/null || true
+            
+            # Grant permissions
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE \"go-db-demo\" TO postgres;" 2>/dev/null || true
+            
+            # Run migrations
+            echo "Running database migrations..."
+            sudo -u postgres psql -d go-db-demo << 'SQLEOF'
+          BEGIN;
+
+          CREATE TABLE IF NOT EXISTS organizations (
+              id   BIGSERIAL PRIMARY KEY,
+              name TEXT NOT NULL UNIQUE
+          );
+
+          CREATE TABLE IF NOT EXISTS jobs (
+              id              BIGSERIAL PRIMARY KEY,
+              name            TEXT NOT NULL,
+              organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS users (
+              id              BIGSERIAL PRIMARY KEY,
+              name            TEXT NOT NULL,
+              job_id          BIGINT     REFERENCES jobs(id)           ON DELETE CASCADE,
+              organization_id BIGINT     REFERENCES organizations(id)  ON DELETE SET NULL
+          );
+
+          -- helpful indexes for FKs
+          CREATE INDEX IF NOT EXISTS idx_jobs_org_id  ON jobs(organization_id);
+          CREATE INDEX IF NOT EXISTS idx_users_job_id ON users(job_id);
+          CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(organization_id);
+
+          -- Insert some test data if tables are empty
+          INSERT INTO organizations (name) VALUES ('Test Organization') ON CONFLICT (name) DO NOTHING;
+          INSERT INTO organizations (name) VALUES ('Another Org') ON CONFLICT (name) DO NOTHING;
+
+          COMMIT;
+          SQLEOF
+            
+            echo "Database setup completed"
+            
+            # Start new process
             cd ~/app
+            echo "Starting application..."
             nohup ./go-db-demo > app.log 2>&1 &
             echo $! > app.pid
             
-            echo "Deployment completed!"
+            echo "Deployment completed"
             sleep 3
             
             # Check if it's running
             if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
-              echo "✅ Health check passed - deployment successful!"
+              echo "Health check passed - deployment successful"
             else
-              echo "❌ Health check failed - check logs"
-              tail -20 app.log || true
+              echo "Health check failed - showing logs:"
+              tail -20 app.log
+              exit 1
             fi
           EOF
 
