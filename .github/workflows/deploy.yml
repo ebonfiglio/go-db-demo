@@ -66,17 +66,6 @@ jobs:
             -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
             internal/db/migrations/ \
             deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/db/migrations/
-            
-      - name: Upload templates
-        run: |
-          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
-            deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/web/templates'
-          rsync -az \
-            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
-            web/templates/ \
-            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/web/templates/
-      
-            
 
       - name: Run DB migrations
         run: |
@@ -103,21 +92,11 @@ jobs:
             systemctl --no-pager -l status go-db-demo || true
           '
 
-      # 9. Health check (optional, ensure service responds)
-      - name: Health check (remote, verbose)
+      # 9. Health check
+      - name: Health check (remote)
         run: |
-          set -e
-          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new deploy@${{ secrets.TS_HOST }} '
-          code=$(curl -sS -o /tmp/hc_body.txt -w "%{http_code}" http://127.0.0.1:8080/)
-          echo "HTTP $code"
-          echo "--- body ---"
-          sed -n "1,200p" /tmp/hc_body.txt || true
-          echo "------------"
-          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
-            echo "Recent app logs:" >&2
-            journalctl -u go-db-demo -n 80 --no-pager >&2 || true
-            exit 1
-          fi
-          '
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} 'curl -fsS http://127.0.0.1:8080/healthz || exit 1'
+
 
 

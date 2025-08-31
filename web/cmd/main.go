@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/gin-gonic/gin"
+
 	"go-db-demo/internal/config"
 	"go-db-demo/internal/db"
 	"go-db-demo/internal/service"
+	"go-db-demo/web"
 	"go-db-demo/web/handlers"
 	"go-db-demo/web/routes"
-	"path/filepath"
-
-	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -23,11 +24,9 @@ func main() {
 
 	router := gin.Default()
 
-	entityTemplates, _ := filepath.Glob("web/templates/**/*")
-	homeTemplates, _ := filepath.Glob("web/templates/*.html")
+	router.SetHTMLTemplate(web.Parse())
 
-	allTemplates := append(entityTemplates, homeTemplates...)
-	router.LoadHTMLFiles(allTemplates...)
+	router.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
 
 	homeHandler := handlers.NewHomeHandler()
 	organizationHandler := handlers.NewOrganizationHandler(orgService)
@@ -37,5 +36,5 @@ func main() {
 
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	fmt.Printf("Server starting on %s\n", serverAddr)
-	router.Run(serverAddr)
+	_ = router.Run(serverAddr)
 }
