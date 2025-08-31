@@ -73,7 +73,7 @@ jobs:
           '
 
       # 9. Health check (optional, ensure service responds)
-      - name: Health check
+      - name: Health check (remote)
         run: |
-          curl -fsS --retry 5 --retry-delay 3 \
-          http://${{ secrets.TS_HOST }}:8080 || exit 1
+           ssh deploy@${{ secrets.TS_HOST }} 'curl -fsS http://127.0.0.1:8080/ || exit 1'
+
