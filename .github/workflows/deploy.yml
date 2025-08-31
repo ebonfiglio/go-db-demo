@@ -59,11 +59,12 @@ jobs:
           TS=${{ github.run_id }}-${{ github.run_attempt }}
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
             deploy@${{ secrets.TS_HOST }} '
-              # Create directory structure if it doesn't exist
-              mkdir -p /var/www/go-db-demo/releases
-              mkdir -p /var/www/go-db-demo/db/migrations
-              mkdir -p /var/www/go-db-demo/deploy
-              mkdir -p /var/www/go-db-demo/web/templates
+              # Create directory structure if it doesn't exist (with sudo)
+              sudo mkdir -p /var/www/go-db-demo/releases
+              sudo mkdir -p /var/www/go-db-demo/db/migrations
+              sudo mkdir -p /var/www/go-db-demo/deploy
+              sudo mkdir -p /var/www/go-db-demo/web/templates
+              sudo chown -R deploy:deploy /var/www/go-db-demo
             '
           rsync -az \
             -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
@@ -98,6 +99,8 @@ jobs:
               sudo cp /var/www/go-db-demo/deploy/go-db-demo.service /etc/systemd/system/ || true
               sudo systemctl enable go-db-demo || true
               sudo systemctl daemon-reload || true
+              # Also ensure deploy user can create directories
+              echo "deploy ALL=(ALL) NOPASSWD: /bin/mkdir, /bin/chown, /bin/systemctl restart go-db-demo, /bin/systemctl daemon-reload, /bin/systemctl enable go-db-demo, /bin/systemctl status go-db-demo" | sudo tee /etc/sudoers.d/deploy || true
             '
 
       # 9. migrations folder
