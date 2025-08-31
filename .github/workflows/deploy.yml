@@ -51,13 +51,17 @@ jobs:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
       # 7. Upload binary & migrations folder
-      - name: Upload app
+      - name: Upload app (+migrations)
         run: |
-          ssh deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/db/migrations'
+          ssh deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/internal/db/migrations'
           rsync -az --delete \
-            --exclude ".env" \
-            go-db-demo db/migrations/ \
+            go-db-demo \
             deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/
+
+          rsync -az \
+            internal/db/migrations/ \
+            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/internal/db/migrations/
+            
 
       # 8. Restart the systemd service
       - name: Restart service
