@@ -77,6 +77,11 @@ jobs:
           fi
           
           echo "Binary copied successfully"
+
+          # Copy migration files to server
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql deploy@$HOST:/tmp/ || {
+            echo "Failed to copy migration files to server"; exit 1;
+          }
           
           # Deploy on server
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@$HOST << 'EOF'
@@ -117,40 +122,12 @@ jobs:
             # Grant permissions
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE \"go-db-demo\" TO postgres;" 2>/dev/null || true
             
-            # Run migrations
-            echo "Running database migrations..."
-            sudo -u postgres psql -d go-db-demo << 'SQLEOF'
-          BEGIN;
-
-          CREATE TABLE IF NOT EXISTS organizations (
-              id   BIGSERIAL PRIMARY KEY,
-              name TEXT NOT NULL UNIQUE
-          );
-
-          CREATE TABLE IF NOT EXISTS jobs (
-              id              BIGSERIAL PRIMARY KEY,
-              name            TEXT NOT NULL,
-              organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE
-          );
-
-          CREATE TABLE IF NOT EXISTS users (
-              id              BIGSERIAL PRIMARY KEY,
-              name            TEXT NOT NULL,
-              job_id          BIGINT     REFERENCES jobs(id)           ON DELETE CASCADE,
-              organization_id BIGINT     REFERENCES organizations(id)  ON DELETE SET NULL
-          );
-
-          -- helpful indexes for FKs
-          CREATE INDEX IF NOT EXISTS idx_jobs_org_id  ON jobs(organization_id);
-          CREATE INDEX IF NOT EXISTS idx_users_job_id ON users(job_id);
-          CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(organization_id);
-
-          -- Insert some test data if tables are empty
-          INSERT INTO organizations (name) VALUES ('Test Organization') ON CONFLICT (name) DO NOTHING;
-          INSERT INTO organizations (name) VALUES ('Another Org') ON CONFLICT (name) DO NOTHING;
-
-          COMMIT;
-          SQLEOF
+            # Run all migration files
+            echo "Running migration scripts..."
+            for f in /tmp/*.up.sql; do
+              echo "Applying migration: $f"
+              sudo -u postgres psql -d go-db-demo -f "$f" || { echo "Migration failed: $f"; exit 1; }
+            done
             
             echo "Database setup completed"
             
