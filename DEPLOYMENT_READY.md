@@ -29,7 +29,7 @@ ssh-copy-id -i ~/.ssh/deploy_key.pub deploy@YOUR_SERVER_IP
 ```
 
 ### 4. Add GitHub secrets:
-- `SERVER_HOST`: Your server's IP address
+- `TS_HOST`: Your server's IP address
 - `DEPLOY_SSH_KEY`: Contents of `~/.ssh/deploy_key`
 
 ### 5. Deploy:

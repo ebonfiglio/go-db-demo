@@ -18,16 +18,21 @@ echo "Server setup complete!"
 ### 2. Set up SSH access
 ```bash
 # On your local machine, generate SSH key if you don't have one:
-ssh-keygen -t ed25519 -f ~/.ssh/deploy_key
+ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -N ""
 
 # Copy public key to server:
 ssh-copy-id -i ~/.ssh/deploy_key.pub deploy@YOUR_SERVER_IP
+
+# Test connection:
+ssh -i ~/.ssh/deploy_key deploy@YOUR_SERVER_IP "echo 'SSH works!'"
 ```
 
 ### 3. Configure GitHub Secrets
-In your GitHub repository, go to Settings → Secrets and add:
-- `SERVER_HOST`: Your server's IP address
+In your GitHub repository, go to **Settings → Secrets and variables → Actions** and add:
+- `TS_HOST`: Your server's IP address (e.g., `192.168.1.100`)
 - `DEPLOY_SSH_KEY`: Contents of your private key (`cat ~/.ssh/deploy_key`)
+
+**📖 Need detailed help? See [GITHUB_SECRETS_SETUP.md](GITHUB_SECRETS_SETUP.md)**
 
 ### 4. Deploy!
 Push to main branch and watch it deploy automatically.

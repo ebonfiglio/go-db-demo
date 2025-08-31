@@ -21,20 +21,38 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
 
+      - name: Check secrets
+        run: |
+          echo "Checking required secrets..."
+          
+          if [ -z "${{ secrets.TS_HOST }}" ]; then
+            echo "❌ ERROR: TS_HOST secret is missing!"
+            echo "Please add your server IP address to GitHub Secrets"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            echo "❌ ERROR: DEPLOY_SSH_KEY secret is missing!"
+            echo "Please add your SSH private key to GitHub Secrets"
+            exit 1
+          fi
+          
+          echo "✅ All secrets are configured"
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to server
         run: |
           # Copy binary to server
-          scp -i ~/.ssh/deploy_key go-db-demo deploy@${{ secrets.SERVER_HOST }}:/tmp/go-db-demo-new
+          scp -i ~/.ssh/deploy_key go-db-demo deploy@${{ secrets.TS_HOST }}:/tmp/go-db-demo-new
           
           # Deploy on server
-          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.SERVER_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.TS_HOST }} << 'EOF'
             # Stop old process
             pkill -f go-db-demo || true
             sleep 2
@@ -81,6 +99,6 @@ jobs:
       - name: Verify deployment
         run: |
           sleep 5
-          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.SERVER_HOST }} '
+          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.TS_HOST }} '
             curl -f http://localhost:8080/healthz && echo "Final verification: SUCCESS"
           '
