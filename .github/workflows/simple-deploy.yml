@@ -29,20 +29,27 @@ jobs:
           tags: tag:ci
 
       - name: Check required secrets
+        env:
+            TS_HOST: ${{ secrets.TS_HOST }}
+            DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+            DB_USER: ${{ secrets.DB_USER }}
+            DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+            DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          set -euo pipefail
-          missing=0
-          for key in TS_HOST DEPLOY_SSH_KEY DB_USER DB_PASSWORD DB_NAME; do
-            if [ -z "${{ secrets[format('{0}', key)] }}" ]; then
-              echo "❌ ERROR: $key is missing"
-              missing=1
+            set -euo pipefail
+            missing=0
+            for var in TS_HOST DEPLOY_SSH_KEY DB_USER DB_PASSWORD DB_NAME; do
+            if [ -z "${!var:-}" ]; then
+                echo "❌ ERROR: $var is missing"
+                missing=1
             fi
-          done
-          if [ "$missing" -eq 1 ]; then
+            done
+            if [ "$missing" -eq 1 ]; then
             echo "Add the missing secrets in your repo settings."
             exit 1
-          fi
-          echo "✅ All secrets present"
+            fi
+            echo "✅ All secrets present"
+
 
       - name: Setup SSH
         run: |
