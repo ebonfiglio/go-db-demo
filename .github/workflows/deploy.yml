@@ -32,6 +32,13 @@ jobs:
           tags: tag:ci
           version: "1.66.4"
           use-cache: 'true'
+          
+      - name: Prepare SSH known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          touch ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts    
 
       # 5. Add VM host key to known_hosts (avoids prompt)
       - name: Trust VM host key
