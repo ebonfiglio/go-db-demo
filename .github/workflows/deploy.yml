@@ -53,15 +53,28 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-      # 7. Upload binary & migrations folder
-      - name: Upload app (+migrations)
+      - name: Upload binary (atomic)
+        run: |
+          set -euo pipefail
+          TS=${{ github.run_id }}-${{ github.run_attempt }}
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/releases'
+          rsync -az \
+            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
+            go-db-demo \
+            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/releases/go-db-demo-$TS
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} "\
+              ln -sfn /var/www/go-db-demo/releases/go-db-demo-$TS /var/www/go-db-demo/current && \
+              chmod +x /var/www/go-db-demo/releases/go-db-demo-$TS && \
+              ls -l /var/www/go-db-demo/current"
+
+
+      # 7. migrations folder
+      - name: Upload migrations
         run: |
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
           deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/db/migrations'
-          rsync -az --delete \
-            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
-            go-db-demo \
-            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/
           rsync -az \
             -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
             internal/db/migrations/ \
