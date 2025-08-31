@@ -7,7 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,135 +28,138 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
 
-      - name: Check secrets
+      - name: Check required secrets
         run: |
-          echo "Checking required secrets..."
-          
-          if [ -z "${{ secrets.TS_HOST }}" ]; then
-            echo "❌ ERROR: TS_HOST secret is missing!"
-            echo "Please add your server hostname to GitHub Secrets"
+          set -euo pipefail
+          missing=0
+          for key in TS_HOST DEPLOY_SSH_KEY DB_USER DB_PASSWORD DB_NAME; do
+            if [ -z "${{ secrets[format('{0}', key)] }}" ]; then
+              echo "❌ ERROR: $key is missing"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "Add the missing secrets in your repo settings."
             exit 1
           fi
-          
-          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
-            echo "❌ ERROR: DEPLOY_SSH_KEY secret is missing!"
-            echo "Please add your SSH private key to GitHub Secrets"
-            exit 1
-          fi
-          
-          echo "✅ All secrets are configured"
-          echo "✅ Connected to Tailscale network"
+          echo "✅ All secrets present"
 
       - name: Setup SSH
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          
-          # Try to add host key, but don't fail if it doesn't work
-          ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || echo "Could not scan host key, will use StrictHostKeyChecking=no"
+          ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Test connectivity and deploy
+      - name: Test connectivity & copy artifacts
         run: |
+          set -euo pipefail
           HOST="${{ secrets.TS_HOST }}"
           echo "Testing connectivity to $HOST..."
-          
-          # Test if we can reach the host
-          if ! timeout 10 nc -zv $HOST 22 2>/dev/null; then
+          if ! timeout 10 nc -zv "$HOST" 22 2>/dev/null; then
             echo "Cannot reach $HOST on port 22"
-            echo "Please check network connectivity and server status"
             exit 1
           fi
-          
-          echo "Port 22 is reachable, deploying..."
-          
-          # Copy binary to server
-          if ! scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo deploy@$HOST:/tmp/go-db-demo-new; then
-            echo "Failed to copy binary to server"
-            exit 1
-          fi
-          
-          echo "Binary copied successfully"
+          echo "Port 22 reachable, copying artifacts..."
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo deploy@"$HOST":/tmp/go-db-demo-new
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql deploy@"$HOST":/tmp/
 
-          # Copy migration files to server
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql deploy@$HOST:/tmp/ || {
-            echo "Failed to copy migration files to server"; exit 1;
-          }
-          
-          # Deploy on server
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@$HOST << 'EOF'
-            # Stop old process
-            pkill -f go-db-demo || true
-            sleep 2
-            
-            # Create app directory
-            mkdir -p ~/app
-            
-            # Move new binary
-            mv /tmp/go-db-demo-new ~/app/go-db-demo
-            chmod +x ~/app/go-db-demo
-            
-            # Create/update .env file
-            cat > ~/app/.env << 'ENVEOF'
+      - name: Deploy on server
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.TS_HOST }}"
+
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" bash -s << 'EOF'
+          set -euo pipefail
+
+          APP_DIR="$HOME/app"
+          BIN_TMP="/tmp/go-db-demo-new"
+          MIGS_GLOB="/tmp/*.up.sql"
+
+          # Stop old process if running
+          pkill -f go-db-demo || true
+          sleep 1
+
+          # App dir and binary
+          mkdir -p "$APP_DIR"
+          mv "$BIN_TMP" "$APP_DIR/go-db-demo"
+          chmod +x "$APP_DIR/go-db-demo"
+
+          # Write .env (values come from env exported by the caller – see next block)
+          cat > "$APP_DIR/.env" <<ENVEOF
           SERVER_HOST=0.0.0.0
           SERVER_PORT=8080
           GIN_MODE=release
           DB_HOST=localhost
           DB_PORT=5432
-          DB_USER=postgres
-          DB_PASSWORD=deploy
-          DB_NAME=go-db-demo
+          DB_USER=${DB_USER}
+          DB_PASSWORD=${DB_PASSWORD}
+          DB_NAME=${DB_NAME}
           DB_SSL_MODE=disable
           ENVEOF
-            
-            # Setup database and run migrations
-            echo "Setting up database..."
-            
-            # Create database if it doesn't exist
-            sudo -u postgres psql -c "CREATE DATABASE \"go-db-demo\";" 2>/dev/null || echo "Database already exists"
-            
-            # Create user if it doesn't exist  
-            sudo -u postgres psql -c "CREATE USER postgres;" 2>/dev/null || echo "User already exists"
-            sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'deploy';" 2>/dev/null || true
-            
-            # Grant permissions
-            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE \"go-db-demo\" TO postgres;" 2>/dev/null || true
-            
-            # Set PGPASSWORD explicitly for psql authentication
-            export PGPASSWORD=deploy
-            
-            # Run all migration files
-            echo "Running migration scripts..."
-            for f in /tmp/*.up.sql; do
-              echo "Applying migration: $f"
-              psql -U postgres -d go-db-demo -h localhost -f "$f" || { echo "Migration failed: $f"; exit 1; }
-            done
-            
-            echo "Database setup completed"
-            
-            # Start new process
-            cd ~/app
-            echo "Starting application..."
-            nohup ./go-db-demo > app.log 2>&1 &
-            echo $! > app.pid
-            
-            echo "Deployment completed"
-            sleep 3
-            
-            # Check if it's running
-            if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
-              echo "Health check passed - deployment successful"
-            else
-              echo "Health check failed - showing logs:"
-              tail -20 app.log
-              exit 1
-            fi
+
+          # === Database bootstrap (admin via OS postgres user) ===
+          # Note: do not change superuser 'postgres' password; use it only for admin with sudo.
+          echo "Bootstrapping database & role..."
+          sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}') THEN
+              PERFORM dblink_exec('dbname=postgres', ''); -- ensure dblink ok if installed; harmless if absent
+            END IF;
+          END $$;
+          SQL
+
+          # Create DB if missing
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 || \
+            sudo -u postgres createdb "${DB_NAME}"
+
+          # Create role if missing (LOGIN role for app)
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1 || \
+            sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASSWORD}';"
+
+          # Ensure privileges
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+          # Future objects in public schema
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER};"
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};"
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER};"
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER};"
+
+          # === Run migrations as app role ===
+          echo "Running migrations as ${DB_USER} on ${DB_NAME}..."
+          shopt -s nullglob
+          for f in ${MIGS_GLOB}; do
+            echo "Applying: \$f"
+            PGPASSWORD="${DB_PASSWORD}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "\$f"
+          done
+          shopt -u nullglob
+
+          # Start app
+          cd "$APP_DIR"
+          echo "Starting application..."
+          nohup ./go-db-demo > app.log 2>&1 &
+          echo \$! > app.pid
+          sleep 2
+
+          # Health check
+          if curl -fsS http://localhost:8080/healthz > /dev/null; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed. Recent logs:"
+            tail -200 app.log || true
+            exit 1
+          fi
           EOF
+        env:
+          # Export DB secrets into the remote heredoc environment
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
 
       - name: Verify deployment
         run: |
+          set -euo pipefail
           HOST="${{ secrets.TS_HOST }}"
-          sleep 5
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@$HOST '
-            curl -f http://localhost:8080/healthz && echo "Final verification: SUCCESS"
-          '
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" 'curl -fsS http://localhost:8080/healthz && echo "Final verification: SUCCESS"'
