@@ -124,9 +124,10 @@ jobs:
             
             # Run all migration files
             echo "Running migration scripts..."
+            export PGPASSWORD=deploy
             for f in /tmp/*.up.sql; do
               echo "Applying migration: $f"
-              sudo -u postgres psql -d go-db-demo -f "$f" || { echo "Migration failed: $f"; exit 1; }
+              psql -U postgres -d go-db-demo -h localhost -f "$f" || { echo "Migration failed: $f"; exit 1; }
             done
             
             echo "Database setup completed"
