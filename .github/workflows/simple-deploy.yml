@@ -21,13 +21,20 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
       - name: Check secrets
         run: |
           echo "Checking required secrets..."
           
           if [ -z "${{ secrets.TS_HOST }}" ]; then
             echo "❌ ERROR: TS_HOST secret is missing!"
-            echo "Please add your server IP address to GitHub Secrets"
+            echo "Please add your server hostname to GitHub Secrets"
             exit 1
           fi
           
@@ -38,6 +45,7 @@ jobs:
           fi
           
           echo "✅ All secrets are configured"
+          echo "✅ Connected to Tailscale network"
 
       - name: Setup SSH
         run: |
@@ -48,13 +56,37 @@ jobs:
           # Try to add host key, but don't fail if it doesn't work
           ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || echo "Could not scan host key, will use StrictHostKeyChecking=no"
 
-      - name: Deploy to server
+      - name: Test connectivity and deploy
         run: |
+          HOST="${{ secrets.TS_HOST }}"
+          echo "Testing connectivity to $HOST..."
+          
+          # Test if we can reach the host
+          if ! timeout 10 nc -zv $HOST 22 2>/dev/null; then
+            echo "❌ Cannot reach $HOST on port 22"
+            echo "This could be because:"
+            echo "1. Tailscale hostname is not resolvable from GitHub Actions"
+            echo "2. Server firewall is blocking connections"
+            echo "3. Server is not accessible from internet"
+            echo ""
+            echo "Solutions:"
+            echo "1. Use the server's public IP address instead of Tailscale hostname"
+            echo "2. Set up a GitHub self-hosted runner on your network"
+            exit 1
+          fi
+          
+          echo "✅ Port 22 is reachable, attempting deployment..."
+          
           # Copy binary to server
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no go-db-demo deploy@${{ secrets.TS_HOST }}:/tmp/go-db-demo-new
+          if ! scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo deploy@$HOST:/tmp/go-db-demo-new; then
+            echo "❌ Failed to copy binary to server"
+            exit 1
+          fi
+          
+          echo "✅ Binary copied successfully, deploying..."
           
           # Deploy on server
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@${{ secrets.TS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@$HOST << 'EOF'
             # Stop old process
             pkill -f go-db-demo || true
             sleep 2
@@ -74,8 +106,8 @@ jobs:
           GIN_MODE=release
           DB_HOST=localhost
           DB_PORT=5432
-          DB_USER=postgres
-          DB_PASSWORD=change_me
+          DB_USER=go_db_demo_user
+          DB_PASSWORD=deploy
           DB_NAME=go-db-demo
           DB_SSL_MODE=disable
           ENVEOF
@@ -100,7 +132,8 @@ jobs:
 
       - name: Verify deployment
         run: |
+          HOST="${{ secrets.TS_HOST }}"
           sleep 5
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@${{ secrets.TS_HOST }} '
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@$HOST '
             curl -f http://localhost:8080/healthz && echo "Final verification: SUCCESS"
           '
