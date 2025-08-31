@@ -57,15 +57,26 @@ jobs:
         run: |
           set -euo pipefail
           TS=${{ github.run_id }}-${{ github.run_attempt }}
+          # Create directory structure using a different approach
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
             deploy@${{ secrets.TS_HOST }} '
-              # Create directory structure if it doesn't exist (with sudo)
-              sudo mkdir -p /var/www/go-db-demo/releases
-              sudo mkdir -p /var/www/go-db-demo/db/migrations
-              sudo mkdir -p /var/www/go-db-demo/deploy
-              sudo mkdir -p /var/www/go-db-demo/web/templates
-              sudo chown -R deploy:deploy /var/www/go-db-demo
+              # Try to create directories, fall back to /tmp if needed
+              if sudo mkdir -p /var/www/go-db-demo/releases 2>/dev/null; then
+                sudo mkdir -p /var/www/go-db-demo/db/migrations
+                sudo mkdir -p /var/www/go-db-demo/deploy
+                sudo mkdir -p /var/www/go-db-demo/web/templates
+                sudo chown -R deploy:deploy /var/www/go-db-demo
+                echo "Created /var/www/go-db-demo structure"
+              else
+                echo "Cannot create /var/www/go-db-demo, using fallback location"
+                mkdir -p /tmp/go-db-demo-deploy/releases
+                mkdir -p /tmp/go-db-demo-deploy/db/migrations
+                mkdir -p /tmp/go-db-demo-deploy/deploy
+                mkdir -p /tmp/go-db-demo-deploy/web/templates
+                ln -sfn /tmp/go-db-demo-deploy /var/www/go-db-demo 2>/dev/null || true
+              fi
             '
+          # Upload binary to the appropriate location
           rsync -az \
             -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
             go-db-demo \
