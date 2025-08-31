@@ -1,0 +1,62 @@
+name: Simple Deploy (Self-Hosted Runner)
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted  # This will run on your own server/network
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build application
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
+
+      - name: Deploy locally
+        run: |
+          # Since we're on the same network, we can deploy directly
+          # Stop old process
+          ssh deploy@${{ secrets.TS_HOST }} 'pkill -f go-db-demo || true'
+          sleep 2
+          
+          # Copy binary
+          scp go-db-demo deploy@${{ secrets.TS_HOST }}:/tmp/go-db-demo-new
+          
+          # Deploy
+          ssh deploy@${{ secrets.TS_HOST }} '
+            mkdir -p ~/app
+            mv /tmp/go-db-demo-new ~/app/go-db-demo
+            chmod +x ~/app/go-db-demo
+            
+            # Create .env if needed
+            if [ ! -f ~/app/.env ]; then
+              cat > ~/app/.env << "ENVEOF"
+          SERVER_HOST=0.0.0.0
+          SERVER_PORT=8080
+          GIN_MODE=release
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_USER=go_db_demo_user
+          DB_PASSWORD=deploy
+          DB_NAME=go-db-demo
+          DB_SSL_MODE=disable
+          ENVEOF
+            fi
+            
+            # Start app
+            cd ~/app
+            nohup ./go-db-demo > app.log 2>&1 &
+            echo $! > app.pid
+            
+            sleep 3
+            curl -f http://localhost:8080/healthz && echo "✅ Deployment successful!"
+          '
