@@ -58,7 +58,13 @@ jobs:
           set -euo pipefail
           TS=${{ github.run_id }}-${{ github.run_attempt }}
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
-            deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/releases'
+            deploy@${{ secrets.TS_HOST }} '
+              # Create directory structure if it doesn't exist
+              mkdir -p /var/www/go-db-demo/releases
+              mkdir -p /var/www/go-db-demo/db/migrations
+              mkdir -p /var/www/go-db-demo/deploy
+              mkdir -p /var/www/go-db-demo/web/templates
+            '
           rsync -az \
             -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
             go-db-demo \
