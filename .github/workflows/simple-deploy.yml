@@ -44,15 +44,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts
+          
+          # Try to add host key, but don't fail if it doesn't work
+          ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || echo "Could not scan host key, will use StrictHostKeyChecking=no"
 
       - name: Deploy to server
         run: |
           # Copy binary to server
-          scp -i ~/.ssh/deploy_key go-db-demo deploy@${{ secrets.TS_HOST }}:/tmp/go-db-demo-new
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no go-db-demo deploy@${{ secrets.TS_HOST }}:/tmp/go-db-demo-new
           
           # Deploy on server
-          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.TS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@${{ secrets.TS_HOST }} << 'EOF'
             # Stop old process
             pkill -f go-db-demo || true
             sleep 2
@@ -99,6 +101,6 @@ jobs:
       - name: Verify deployment
         run: |
           sleep 5
-          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.TS_HOST }} '
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@${{ secrets.TS_HOST }} '
             curl -f http://localhost:8080/healthz && echo "Final verification: SUCCESS"
           '
