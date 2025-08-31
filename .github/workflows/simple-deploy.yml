@@ -119,24 +119,32 @@ jobs:
             DB_SSL_MODE=disable
             ENVEOF
 
+            # --- Quoted identifier helpers for SQL (handles hyphens, quotes, case) ---
+            quote_ident() {
+            # doubles internal " and wraps with "
+            printf '"%s"' "$(printf '%s' "$1" | sed 's/"/""/g')"
+            }
+            DB_NAME_Q=$(quote_ident "${DB_NAME}")
+            DB_USER_Q=$(quote_ident "${DB_USER}")
+
             echo "Bootstrapping database & role..."
 
-            # Create DB if missing
+            # Create DB if missing (note: createdb needs '--' before name to avoid option parsing)
             if ! sudop psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
-            sudop createdb "${DB_NAME}"
+            sudop createdb -- "${DB_NAME}"
             fi
 
-            # Create role if missing
+            # Create role if missing (quote identifier)
             if ! sudop psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
-            sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASSWORD}';"
+            sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER_Q} LOGIN PASSWORD '${DB_PASSWORD}';"
             fi
 
-            # Ensure privileges
-            sudop psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
-            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER};"
-            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};"
-            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER};"
-            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER};"
+            # Ensure privileges (quote identifiers anywhere they appear in SQL)
+            sudop psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME_Q} TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER_Q};"
 
             echo "Running migrations as ${DB_USER} on ${DB_NAME}..."
             shopt -s nullglob
