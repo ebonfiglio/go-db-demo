@@ -67,6 +67,16 @@ jobs:
             internal/db/migrations/ \
             deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/db/migrations/
             
+      - name: Upload templates
+        run: |
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/web/templates'
+          rsync -az \
+            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
+            web/templates/ \
+            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/web/templates/
+      
+            
 
       - name: Run DB migrations
         run: |
