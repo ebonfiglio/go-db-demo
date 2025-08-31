@@ -2,99 +2,122 @@ name: Deploy go-db-demo to VM (over Tailscale)
 
 on:
   push:
-    branches: [ "main" ]   # deploys only when you push to main
+    branches: [ "main" ]
+
+concurrency:
+  group: deploy-go-db-demo
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout source
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # 2. Set up Go
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version: '1.22'
 
-      # 3. Build Linux binary
-      - name: Build go-db-demo
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Build linux/amd64 binary
         run: |
+          set -euo pipefail
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
           go build -ldflags="-s -w" -o go-db-demo ./web/cmd
+          file go-db-demo
+          chmod +x go-db-demo
 
-      # 4. Join your tailnet
-      - name: Join Tailscale
-        uses: tailscale/github-action@v2
+      - name: Join Tailscale (OAuth)
+        uses: tailscale/github-action@v3
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
-          tags: tag:ci
-          version: "1.66.4"
-          use-cache: 'true'
-          
-   
-      - name: Prepare SSH
+          oauth-secret:    ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
+          tags:            tag:ci
+          version:         "1.66.4"
+          use-cache:       'true'
+
+      - name: Prepare SSH (known_hosts + key file)
         run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          ssh-keyscan -T 15 "${{ secrets.TS_HOST }}" 2>/dev/null | tee -a ~/.ssh/known_hosts >/dev/null
-          cat > ~/.ssh/ci_key << 'EOF'
-          ${{ secrets.DEPLOY_SSH_KEY }}
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -T 15 "${{ secrets.TS_HOST }}" 2>/dev/null >> ~/.ssh/known_hosts
+          # write the private key EXACTLY as stored in the secret (no indentation)
+          cat > ~/.ssh/ci_key <<'EOF'
+            ${{ secrets.DEPLOY_SSH_KEY }}
           EOF
-          chmod 600 ~/.ssh/ci_key    
+          chmod 600 ~/.ssh/ci_key
 
-      # 5. Add VM host key to known_hosts (avoids prompt)
-      - name: Trust VM host key
-        run: ssh-keyscan -T 15 "${{ secrets.TS_HOST }}" >> ~/.ssh/known_hosts
-
-      # 6. Load CI private key
-      - name: Load deploy key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      # 7. Upload binary & migrations folder
-      - name: Upload app (+migrations)
+      - name: Upload binary
         run: |
+          set -euo pipefail
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
-          deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/db/migrations'
+            deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo'
           rsync -az --delete \
             -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
             go-db-demo \
             deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/
-          rsync -az \
-            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
-            internal/db/migrations/ \
-            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/db/migrations/
-            
 
-      - name: Run DB migrations
+      - name: Upload migrations (if any)
         run: |
+          set -euo pipefail
+          if [ -d internal/db/migrations ]; then
+            ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+              deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/db/migrations'
+            rsync -az \
+              -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
+              internal/db/migrations/ \
+              deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/db/migrations/
+          else
+            echo "No migrations folder found; skipping."
+          fi
+
+      - name: Run DB migrations (apply *up.sql only)
+        run: |
+          set -euo pipefail
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
             deploy@${{ secrets.TS_HOST }} '
-              set -e
+              set -euo pipefail
               cd /var/www/go-db-demo
               set -a; . ./.env; set +a
-              for f in $(ls -1 db/migrations/*up.sql 2>/dev/null | sort); do
+              shopt -s nullglob
+              files=(db/migrations/*up.sql)
+              if [ ${#files[@]} -eq 0 ]; then
+                echo "No *up.sql migrations found; skipping."
+                exit 0
+              fi
+              for f in $(ls -1 db/migrations/*up.sql | sort); do
                 echo "Applying $f"
                 PGPASSWORD="$DB_PASSWORD" psql \
                   -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
                   -v ON_ERROR_STOP=1 -f "$f"
-            done
-          '
+              done
+            '
 
-
-      # 8. Restart the systemd service
       - name: Restart service
         run: |
-          ssh deploy@${{ secrets.TS_HOST }} '
-            sudo systemctl daemon-reload
-            sudo systemctl restart go-db-demo
-            systemctl --no-pager -l status go-db-demo || true
-          '
+          set -euo pipefail
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} '
+              sudo systemctl daemon-reload
+              sudo systemctl restart go-db-demo
+              systemctl --no-pager -l status go-db-demo || true
+            '
 
-      # 9. Health check (optional, ensure service responds)
-      - name: Health check (remote)
+      - name: Health check (remote via SSH)
         run: |
-           ssh deploy@${{ secrets.TS_HOST }} 'curl -fsS http://127.0.0.1:8080/ || exit 1'
-
+          set -euo pipefail
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} 'curl -fsS http://127.0.0.1:8080/ || exit 1'
