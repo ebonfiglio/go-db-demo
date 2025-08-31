@@ -91,6 +91,7 @@ jobs:
             deploy@${{ secrets.TS_HOST }} '
               sudo cp /var/www/go-db-demo/deploy/go-db-demo.service /etc/systemd/system/ || true
               sudo systemctl enable go-db-demo || true
+              sudo systemctl daemon-reload || true
             '
 
       # 9. migrations folder
@@ -124,24 +125,50 @@ jobs:
         run: |
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
             deploy@${{ secrets.TS_HOST }} '
-            sudo systemctl daemon-reload
-            sudo systemctl restart go-db-demo
-            systemctl --no-pager -l status go-db-demo || true
+            # Use the simple deployment script if systemd doesn't work
+            if sudo -n systemctl restart go-db-demo 2>/dev/null; then
+              echo "Service restarted successfully with systemd"
+              systemctl --no-pager -l status go-db-demo || true
+            else
+              echo "Systemd restart failed, using simple deployment script..."
+              cd /var/www/go-db-demo
+              chmod +x deploy/simple-deploy.sh
+              ./deploy/simple-deploy.sh
+            fi
           '
 
-      # 11. Health check
+      # 11. Health check with retry
       - name: Health check (remote)
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
             deploy@${{ secrets.TS_HOST }} '
-              code=$(curl -sS -o /tmp/hc.txt -w "%{http_code}" http://127.0.0.1:8080/healthz || true)
-              echo "HTTP $code"
-              if [ "$code" != "200" ]; then
-                echo "--- body ---"; sed -n "1,200p" /tmp/hc.txt || true
-                echo "--- recent logs ---"; journalctl -u go-db-demo -n 80 --no-pager || true
-                exit 1
-              fi
+              echo "Waiting for application to start..."
+              sleep 5
+              
+              # Retry health check up to 6 times (30 seconds total)
+              for i in {1..6}; do
+                echo "Health check attempt $i/6..."
+                code=$(curl -sS -o /tmp/hc.txt -w "%{http_code}" http://127.0.0.1:8080/healthz || echo "000")
+                echo "HTTP $code"
+                
+                if [ "$code" = "200" ]; then
+                  echo "✅ Health check passed!"
+                  exit 0
+                fi
+                
+                if [ $i -lt 6 ]; then
+                  echo "Health check failed, retrying in 5 seconds..."
+                  sleep 5
+                fi
+              done
+              
+              # If we get here, all attempts failed
+              echo "❌ Health check failed after 6 attempts"
+              echo "--- body ---"; sed -n "1,200p" /tmp/hc.txt || true
+              echo "--- recent logs ---"; 
+              journalctl -u go-db-demo -n 80 --no-pager || tail -50 /tmp/go-db-demo.log || true
+              exit 1
             '
 
 
