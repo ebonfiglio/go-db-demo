@@ -21,39 +21,41 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid organization ID: " + err.Error(),
+		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
+			"Title": "Organizations",
+			"Error": err.Error(),
 		})
 		return
 	}
 
 	org, err := h.orgService.GetOrganization(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get organization: " + err.Error(),
-			"debug": "Check database connection and migrations",
+		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
+			"Title": "Organizations",
+			"Error": err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"organization": org,
+	c.HTML(http.StatusOK, "organizations/index.html", gin.H{
+		"Title":        "Organization - " + org.Name,
+		"Organization": org,
 	})
 }
 
 func (h *OrganizationHandler) List(c *gin.Context) {
 	orgs, err := h.orgService.GetAllOrganizations()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get organizations: " + err.Error(),
-			"debug": "Check database connection and migrations",
+		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
+			"Title": "Organizations",
+			"Error": err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"organizations": orgs,
-		"count":         len(orgs),
+	c.HTML(http.StatusOK, "organizations/list.html", gin.H{
+		"Title":         "Organizations",
+		"Organizations": orgs,
 	})
 }
 
