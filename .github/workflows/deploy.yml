@@ -30,7 +30,8 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
-          version: stable
+          version: latest
+          use-cache: 'true'
 
       # 5. Add VM host key to known_hosts (avoids prompt)
       - name: Trust VM host key
