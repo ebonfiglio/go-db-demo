@@ -3,11 +3,16 @@
 ## Quick Setup (5 minutes)
 
 ### 1. Prepare your Ubuntu server
-Run this on your Ubuntu server:
+Run these commands on your Ubuntu server:
 ```bash
-curl -O https://raw.githubusercontent.com/ebonfiglio/go-db-demo/main/setup-server.sh
-chmod +x setup-server.sh
-./setup-server.sh
+# Create deploy user if it doesn't exist
+sudo useradd -m -s /bin/bash deploy 2>/dev/null || echo "Deploy user already exists"
+
+# Create app directory
+sudo -u deploy mkdir -p /home/deploy/app
+sudo -u deploy mkdir -p /home/deploy/.ssh
+
+echo "Server setup complete!"
 ```
 
 ### 2. Set up SSH access
