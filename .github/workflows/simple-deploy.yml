@@ -1,0 +1,86 @@
+name: Simple Deploy to Ubuntu VM
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build application
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        run: |
+          # Copy binary to server
+          scp -i ~/.ssh/deploy_key go-db-demo deploy@${{ secrets.SERVER_HOST }}:/tmp/go-db-demo-new
+          
+          # Deploy on server
+          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.SERVER_HOST }} << 'EOF'
+            # Stop old process
+            pkill -f go-db-demo || true
+            sleep 2
+            
+            # Create app directory if it doesn't exist
+            mkdir -p ~/app
+            
+            # Move new binary
+            mv /tmp/go-db-demo-new ~/app/go-db-demo
+            chmod +x ~/app/go-db-demo
+            
+            # Create basic .env file if it doesn't exist
+            if [ ! -f ~/app/.env ]; then
+              cat > ~/app/.env << 'ENVEOF'
+          SERVER_HOST=0.0.0.0
+          SERVER_PORT=8080
+          GIN_MODE=release
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_USER=postgres
+          DB_PASSWORD=change_me
+          DB_NAME=go-db-demo
+          DB_SSL_MODE=disable
+          ENVEOF
+            fi
+            
+            # Start new process in background
+            cd ~/app
+            nohup ./go-db-demo > app.log 2>&1 &
+            echo $! > app.pid
+            
+            echo "Deployment completed!"
+            sleep 3
+            
+            # Check if it's running
+            if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
+              echo "✅ Health check passed - deployment successful!"
+            else
+              echo "❌ Health check failed - check logs"
+              tail -20 app.log || true
+            fi
+          EOF
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.SERVER_HOST }} '
+            curl -f http://localhost:8080/healthz && echo "Final verification: SUCCESS"
+          '
