@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/gin-gonic/gin"
 
@@ -24,9 +25,19 @@ func main() {
 
 	router := gin.Default()
 
-	router.SetHTMLTemplate(web.Parse())
+	// Load HTML templates with error handling
+	htmlTemplate := web.Parse()
+	if htmlTemplate != nil {
+		router.SetHTMLTemplate(htmlTemplate)
+		log.Println("Templates loaded successfully")
+	} else {
+		log.Println("Warning: No templates loaded")
+	}
 
-	router.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
+	// Health check endpoint - this was missing the HTTP 200 response
+	router.GET("/healthz", func(c *gin.Context) {
+		c.String(200, "ok")
+	})
 
 	homeHandler := handlers.NewHomeHandler()
 	organizationHandler := handlers.NewOrganizationHandler(orgService)
@@ -36,5 +47,6 @@ func main() {
 
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	fmt.Printf("Server starting on %s\n", serverAddr)
+	log.Printf("Server starting on %s", serverAddr)
 	_ = router.Run(serverAddr)
 }

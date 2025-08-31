@@ -1,0 +1,28 @@
+[Unit]
+Description=go-db-demo web service
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/go-db-demo
+ExecStart=/var/www/go-db-demo/current
+Restart=always
+RestartSec=5
+Environment=GIN_MODE=release
+EnvironmentFile=/var/www/go-db-demo/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=go-db-demo
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/www/go-db-demo
+
+[Install]
+WantedBy=multi-user.target

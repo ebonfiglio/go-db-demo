@@ -70,7 +70,30 @@ jobs:
               ls -l /var/www/go-db-demo/current"
 
 
-      # 7. migrations folder
+      # 7. Upload templates
+      - name: Upload templates
+        run: |
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} 'mkdir -p /var/www/go-db-demo/web/templates'
+          rsync -az \
+            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
+            web/templates/ \
+            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/web/templates/
+
+      # 8. Upload systemd service file
+      - name: Upload systemd service
+        run: |
+          rsync -az \
+            -e 'ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new' \
+            deploy/ \
+            deploy@${{ secrets.TS_HOST }}:/var/www/go-db-demo/deploy/
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} '
+              sudo cp /var/www/go-db-demo/deploy/go-db-demo.service /etc/systemd/system/ || true
+              sudo systemctl enable go-db-demo || true
+            '
+
+      # 9. migrations folder
       - name: Upload migrations
         run: |
           ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
@@ -96,16 +119,17 @@ jobs:
           '
 
 
-      # 8. Restart the systemd service
+      # 10. Restart the systemd service
       - name: Restart service
         run: |
-          ssh deploy@${{ secrets.TS_HOST }} '
+          ssh -i ~/.ssh/ci_key -o StrictHostKeyChecking=accept-new \
+            deploy@${{ secrets.TS_HOST }} '
             sudo systemctl daemon-reload
             sudo systemctl restart go-db-demo
             systemctl --no-pager -l status go-db-demo || true
           '
 
-      # 9. Health check
+      # 11. Health check
       - name: Health check (remote)
         run: |
           set -euo pipefail
