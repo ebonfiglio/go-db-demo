@@ -73,97 +73,79 @@ jobs:
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql deploy@"$HOST":/tmp/
 
       - name: Deploy on server
-        run: |
-          set -euo pipefail
-          HOST="${{ secrets.TS_HOST }}"
+  run: |
+    set -euo pipefail
+    HOST="${{ secrets.TS_HOST }}"
 
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" bash -s << 'EOF'
-          set -euo pipefail
+    # Pass DB_* env vars into the remote shell via SSH command line
+    ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
+      DB_USER="${DB_USER}" DB_PASSWORD="${DB_PASSWORD}" DB_NAME="${DB_NAME}" \
+      bash -s << 'EOF'
+    set -euo pipefail
 
-          APP_DIR="$HOME/app"
-          BIN_TMP="/tmp/go-db-demo-new"
-          MIGS_GLOB="/tmp/*.up.sql"
+    APP_DIR="$HOME/app"
+    BIN_TMP="/tmp/go-db-demo-new"   # adjust to your actual name
+    MIGS_GLOB="/tmp/*.up.sql"
 
-          # Stop old process if running
-          pkill -f go-db-demo || true
-          sleep 1
+    pkill -f go-db-demo || true
+    sleep 1
 
-          # App dir and binary
-          mkdir -p "$APP_DIR"
-          mv "$BIN_TMP" "$APP_DIR/go-db-demo"
-          chmod +x "$APP_DIR/go-db-demo"
+    mkdir -p "$APP_DIR"
+    mv "$BIN_TMP" "$APP_DIR/go-db-demo"
+    chmod +x "$APP_DIR/go-db-demo"
 
-          # Write .env (values come from env exported by the caller – see next block)
-          cat > "$APP_DIR/.env" <<ENVEOF
-          SERVER_HOST=0.0.0.0
-          SERVER_PORT=8080
-          GIN_MODE=release
-          DB_HOST=localhost
-          DB_PORT=5432
-          DB_USER=${DB_USER}
-          DB_PASSWORD=${DB_PASSWORD}
-          DB_NAME=${DB_NAME}
-          DB_SSL_MODE=disable
-          ENVEOF
+    # Now these expand on the REMOTE because we injected them via SSH
+    cat > "$APP_DIR/.env" <<ENVEOF
+    SERVER_HOST=0.0.0.0
+    SERVER_PORT=8080
+    GIN_MODE=release
+    DB_HOST=localhost
+    DB_PORT=5432
+    DB_USER=${DB_USER}
+    DB_PASSWORD=${DB_PASSWORD}
+    DB_NAME=${DB_NAME}
+    DB_SSL_MODE=disable
+    ENVEOF
 
-          # === Database bootstrap (admin via OS postgres user) ===
-          # Note: do not change superuser 'postgres' password; use it only for admin with sudo.
-          echo "Bootstrapping database & role..."
-          sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
-          DO $$
-          BEGIN
-            IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}') THEN
-              PERFORM dblink_exec('dbname=postgres', ''); -- ensure dblink ok if installed; harmless if absent
-            END IF;
-          END $$;
-          SQL
+    echo "Bootstrapping database & role..."
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 || \
+      sudo -u postgres createdb "${DB_NAME}"
 
-          # Create DB if missing
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 || \
-            sudo -u postgres createdb "${DB_NAME}"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1 || \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASSWORD}';"
 
-          # Create role if missing (LOGIN role for app)
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1 || \
-            sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASSWORD}';"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER};"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER};"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER};"
 
-          # Ensure privileges
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
-          # Future objects in public schema
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER};"
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};"
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER};"
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER};"
+    echo "Running migrations as ${DB_USER} on ${DB_NAME}..."
+    shopt -s nullglob
+    for f in ${MIGS_GLOB}; do
+      echo "Applying: $f"
+      PGPASSWORD="${DB_PASSWORD}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
+    done
+    shopt -u nullglob
 
-          # === Run migrations as app role ===
-          echo "Running migrations as ${DB_USER} on ${DB_NAME}..."
-          shopt -s nullglob
-          for f in ${MIGS_GLOB}; do
-            echo "Applying: \$f"
-            PGPASSWORD="${DB_PASSWORD}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "\$f"
-          done
-          shopt -u nullglob
+    cd "$APP_DIR"
+    echo "Starting application..."
+    nohup ./go-db-demo > app.log 2>&1 &
+    echo $! > app.pid
+    sleep 2
 
-          # Start app
-          cd "$APP_DIR"
-          echo "Starting application..."
-          nohup ./go-db-demo > app.log 2>&1 &
-          echo \$! > app.pid
-          sleep 2
-
-          # Health check
-          if curl -fsS http://localhost:8080/healthz > /dev/null; then
-            echo "✅ Health check passed"
-          else
-            echo "❌ Health check failed. Recent logs:"
-            tail -200 app.log || true
-            exit 1
-          fi
-          EOF
-        env:
-          # Export DB secrets into the remote heredoc environment
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+    if curl -fsS http://localhost:8080/healthz > /dev/null; then
+      echo "✅ Health check passed"
+    else
+      echo "❌ Health check failed. Recent logs:"
+      tail -200 app.log || true
+      exit 1
+    fi
+    EOF
+  env:
+    DB_USER: ${{ secrets.DB_USER }}
+    DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+    DB_NAME: ${{ secrets.DB_NAME }}
 
       - name: Verify deployment
         run: |
