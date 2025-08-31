@@ -122,9 +122,11 @@ jobs:
             # Grant permissions
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE \"go-db-demo\" TO postgres;" 2>/dev/null || true
             
+            # Set PGPASSWORD explicitly for psql authentication
+            export PGPASSWORD=deploy
+            
             # Run all migration files
             echo "Running migration scripts..."
-            export PGPASSWORD=deploy
             for f in /tmp/*.up.sql; do
               echo "Applying migration: $f"
               psql -U postgres -d go-db-demo -h localhost -f "$f" || { echo "Migration failed: $f"; exit 1; }
