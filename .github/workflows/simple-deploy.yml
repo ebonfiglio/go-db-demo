@@ -124,6 +124,19 @@ jobs:
             bash -s <<'EOF'
             set -euo pipefail
 
+            # Helper: run as postgres via passwordless sudo if available, else via -S with password if provided
+            sudop() {
+              if sudo -n -u postgres true 2>/dev/null; then
+                sudo -n -u postgres "$@"
+              elif [ -n "${DEPLOY_SUDO_PASSWORD:-}" ]; then
+                printf '%s\n' "$DEPLOY_SUDO_PASSWORD" | sudo -S -u postgres "$@"
+              else
+                echo "❌ Need privilege to run as 'postgres'."
+                echo "   Either configure NOPASSWD sudo for the deploy user, or provide DEPLOY_SUDO_PASSWORD."
+                exit 1
+              fi
+            }
+
             # Quoted identifier helpers for SQL
             quote_ident() {
               printf '"%s"' "$(printf '%s' "$1" | sed 's/"/""/g')"
@@ -132,12 +145,9 @@ jobs:
             DB_NAME_Q=$(quote_ident "${DB_NAME}")
             DB_USER_Q=$(quote_ident "${DB_USER}")
 
-            # Helper: run as postgres via sudo with password
-            sudop() {
-              printf '%s\n' "$DEPLOY_SUDO_PASSWORD" | sudo -S -u postgres "$@"
-            }
+            echo "Bootstrapping database & role..."
 
-            # Create database if missing
+            # Create DB if missing
             if ! sudop psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
               sudop createdb -- "${DB_NAME}"
             fi
@@ -147,8 +157,12 @@ jobs:
               sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER_Q} LOGIN PASSWORD '${DB_PASSWORD}';"
             fi
 
-            # Grant privileges
+            # Ensure privileges
             sudop psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME_Q} TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER_Q};"
+            sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER_Q};"
             EOF
 
       - name: Run Migrations
