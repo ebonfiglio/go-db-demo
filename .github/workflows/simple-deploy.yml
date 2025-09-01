@@ -40,7 +40,7 @@ jobs:
             missing=0
             for var in TS_HOST DEPLOY_SSH_KEY DB_USER DB_PASSWORD DB_NAME; do
             if [ -z "${!var:-}" ]; then
-                echo "❌ ERROR: $var is missing"
+                echo "ERROR: $var is missing"
                 missing=1
             fi
             done
@@ -48,7 +48,7 @@ jobs:
             echo "Add the missing secrets in your repo settings."
             exit 1
             fi
-            echo "✅ All secrets present"
+            echo "All secrets present"
 
 
       - name: Setup SSH
