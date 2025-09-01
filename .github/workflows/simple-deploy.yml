@@ -124,6 +124,14 @@ jobs:
             bash -s <<'EOF'
             set -euo pipefail
 
+            # Quoted identifier helpers for SQL
+            quote_ident() {
+              printf '"%s"' "$(printf '%s' "$1" | sed 's/"/""/g')"
+            }
+
+            DB_NAME_Q=$(quote_ident "${DB_NAME}")
+            DB_USER_Q=$(quote_ident "${DB_USER}")
+
             # Helper: run as postgres via sudo with password
             sudop() {
               printf '%s\n' "$DEPLOY_SUDO_PASSWORD" | sudo -S -u postgres "$@"
@@ -136,11 +144,11 @@ jobs:
 
             # Create role if missing
             if ! sudop psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
-              sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE \"${DB_USER}\" LOGIN PASSWORD '${DB_PASSWORD}';"
+              sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER_Q} LOGIN PASSWORD '${DB_PASSWORD}';"
             fi
 
             # Grant privileges
-            sudop psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_NAME}\" TO \"${DB_USER}\";"
+            sudop psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME_Q} TO ${DB_USER_Q};"
             EOF
 
       - name: Run Migrations
