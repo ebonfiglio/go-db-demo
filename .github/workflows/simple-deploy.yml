@@ -73,7 +73,11 @@ jobs:
         run: |
           set -euo pipefail
           HOST="${{ secrets.TS_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" bash -s <<'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
+            DB_USER="${{ secrets.DB_USER }}" \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            DB_NAME="${{ secrets.DB_NAME }}" \
+            bash -s <<'EOF'
             set -euo pipefail
 
             APP_DIR="$HOME/app"
@@ -82,7 +86,7 @@ jobs:
             # Always recreate .env file
             echo "Recreating .env file..."
             mkdir -p "$APP_DIR"
-            cat > "$ENV_FILE" <<ENVEOF
+            cat > "$ENV_FILE" <<'ENVEOF'
             SERVER_HOST=0.0.0.0
             SERVER_PORT=8080
             GIN_MODE=release
