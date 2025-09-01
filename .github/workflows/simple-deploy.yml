@@ -12,16 +12,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Go Modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            go-mod-${{ runner.os }}-
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -50,7 +40,7 @@ jobs:
             missing=0
             for var in TS_HOST DEPLOY_SSH_KEY DB_USER DB_PASSWORD DB_NAME; do
             if [ -z "${!var:-}" ]; then
-                echo "ERROR: $var is missing"
+                echo "❌ ERROR: $var is missing"
                 missing=1
             fi
             done
@@ -58,7 +48,7 @@ jobs:
             echo "Add the missing secrets in your repo settings."
             exit 1
             fi
-            echo "All secrets present"
+            echo "✅ All secrets present"
 
 
       - name: Setup SSH
@@ -68,36 +58,6 @@ jobs:
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Ensure .env File Exists
-        run: |
-          set -euo pipefail
-          HOST="${{ secrets.TS_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
-            DB_USER="${{ secrets.DB_USER }}" \
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            DB_NAME="${{ secrets.DB_NAME }}" \
-            bash -s <<'EOF'
-            set -euo pipefail
-
-            APP_DIR="$HOME/app"
-            ENV_FILE="$APP_DIR/.env"
-
-            # Always recreate .env file
-            echo "Recreating .env file..."
-            mkdir -p "$APP_DIR"
-            cat > "$ENV_FILE" <<'ENVEOF'
-            SERVER_HOST=0.0.0.0
-            SERVER_PORT=8080
-            GIN_MODE=release
-            DB_HOST=localhost
-            DB_PORT=5432
-            DB_USER=${DB_USER}
-            DB_PASSWORD=${DB_PASSWORD}
-            DB_NAME=${DB_NAME}
-            DB_SSL_MODE=disable
-            ENVEOF
-          EOF
 
       - name: Test connectivity & copy artifacts
         run: |
@@ -112,114 +72,112 @@ jobs:
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo deploy@"$HOST":/tmp/go-db-demo-new
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql deploy@"$HOST":/tmp/
 
-      - name: Create/Check Database
+      - name: Deploy on server
         run: |
-          set -euo pipefail
-          HOST="${{ secrets.TS_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
-            DB_USER="${{ secrets.DB_USER }}" \
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            DB_NAME="${{ secrets.DB_NAME }}" \
-            DEPLOY_SUDO_PASSWORD="${{ secrets.DEPLOY_SUDO_PASSWORD }}" \
-            bash -s <<'EOF'
+            set -euo pipefail
+            HOST="${{ secrets.TS_HOST }}"
+
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
+            DB_USER="${DB_USER}" DB_PASSWORD="${DB_PASSWORD}" DB_NAME="${DB_NAME}" DEPLOY_SUDO_PASSWORD="${DEPLOY_SUDO_PASSWORD:-}" \
+            bash -s << 'EOF'
             set -euo pipefail
 
             # Helper: run as postgres via passwordless sudo if available, else via -S with password if provided
             sudop() {
-              if sudo -n -u postgres true 2>/dev/null; then
+            if sudo -n -u postgres true 2>/dev/null; then
                 sudo -n -u postgres "$@"
-              elif [ -n "${DEPLOY_SUDO_PASSWORD:-}" ]; then
+            elif [ -n "${DEPLOY_SUDO_PASSWORD:-}" ]; then
+                # Use -S to read password from stdin, fail if wrong
                 printf '%s\n' "$DEPLOY_SUDO_PASSWORD" | sudo -S -u postgres "$@"
-              else
-                echo "❌ Need privilege to run as 'postgres'."
-                echo "   Either configure NOPASSWD sudo for the deploy user, or provide DEPLOY_SUDO_PASSWORD."
+            else
+                echo "Need privilege to run as 'postgres'."
+                echo "Either configure NOPASSWD sudo for the deploy user, or provide DEPLOY_SUDO_PASSWORD."
                 exit 1
-              fi
+            fi
             }
 
-            # Quoted identifier helpers for SQL
+            APP_DIR="$HOME/app"
+            BIN_TMP="/tmp/go-db-demo-new"
+            MIGS_GLOB="/tmp/*.up.sql"
+
+            pkill -f go-db-demo || true
+            sleep 1
+
+            mkdir -p "$APP_DIR"
+            mv "$BIN_TMP" "$APP_DIR/go-db-demo"
+            chmod +x "$APP_DIR/go-db-demo"
+
+            cat > "$APP_DIR/.env" <<ENVEOF
+            SERVER_HOST=0.0.0.0
+            SERVER_PORT=8080
+            GIN_MODE=release
+            DB_HOST=localhost
+            DB_PORT=5432
+            DB_USER=${DB_USER}
+            DB_PASSWORD=${DB_PASSWORD}
+            DB_NAME=${DB_NAME}
+            DB_SSL_MODE=disable
+            ENVEOF
+
+            # --- Quoted identifier helpers for SQL (handles hyphens, quotes, case) ---
             quote_ident() {
-              printf '"%s"' "$(printf '%s' "$1" | sed 's/"/""/g')"
+            # doubles internal " and wraps with "
+            printf '"%s"' "$(printf '%s' "$1" | sed 's/"/""/g')"
             }
-
             DB_NAME_Q=$(quote_ident "${DB_NAME}")
             DB_USER_Q=$(quote_ident "${DB_USER}")
 
             echo "Bootstrapping database & role..."
 
-            # Create DB if missing
+            # Create DB if missing (note: createdb needs '--' before name to avoid option parsing)
             if ! sudop psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
-              sudop createdb -- "${DB_NAME}"
+            sudop createdb -- "${DB_NAME}"
             fi
 
-            # Create role if missing
+            # Create role if missing (quote identifier)
             if ! sudop psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
-              sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER_Q} LOGIN PASSWORD '${DB_PASSWORD}';"
+            sudop psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${DB_USER_Q} LOGIN PASSWORD '${DB_PASSWORD}';"
             fi
 
-            # Ensure privileges
+            # Ensure privileges (quote identifiers anywhere they appear in SQL)
             sudop psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME_Q} TO ${DB_USER_Q};"
             sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER_Q};"
             sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER_Q};"
             sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER_Q};"
             sudop psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER_Q};"
-            EOF
 
-      - name: Run Migrations
-        run: |
-          set -euo pipefail
-          HOST="${{ secrets.TS_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
-            DB_USER="${{ secrets.DB_USER }}" \
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            DB_NAME="${{ secrets.DB_NAME }}" \
-            bash -s <<'EOF'
-            set -euo pipefail
-
-            # Run migrations
-            for f in /tmp/*.up.sql; do
-              echo "Applying migration: $f"
-              PGPASSWORD="${DB_PASSWORD}" psql -U "${DB_USER}" -d "${DB_NAME}" -f "$f"
+            echo "Running migrations as ${DB_USER} on ${DB_NAME}..."
+            shopt -s nullglob
+            for f in ${MIGS_GLOB}; do
+            echo "Applying: $f"
+            PGPASSWORD="${DB_PASSWORD}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
             done
-            EOF
+            shopt -u nullglob
 
-      - name: Start Application
-        run: |
-          set -euo pipefail
-          HOST="${{ secrets.TS_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" bash -s <<'EOF'
-            set -euo pipefail
-
-            APP_DIR="$HOME/app"
-            BIN_TMP="/tmp/go-db-demo-new"
-
-            # Stop old process
-            pkill -f go-db-demo || true
-            sleep 1
-
-            # Move binary to app directory
-            mkdir -p "$APP_DIR"
-            mv "$BIN_TMP" "$APP_DIR/go-db-demo"
-            chmod +x "$APP_DIR/go-db-demo"
-
-            # Start application
             cd "$APP_DIR"
+            echo "Starting application..."
             nohup ./go-db-demo > app.log 2>&1 &
             echo $! > app.pid
-            EOF
+            sleep 2
 
-      - name: Health Check
+            if curl -fsS http://localhost:8080/health > /dev/null; then
+            echo "Health check passed"
+            else
+            echo "Health check failed. Recent logs:"
+            tail -200 app.log || true
+            exit 1
+            fi
+            EOF
+        env:
+            DB_USER: ${{ secrets.DB_USER }}
+            DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+            DB_NAME: ${{ secrets.DB_NAME }}
+            # Optional: only needed if you choose the fallback (sudo password)
+            DEPLOY_SUDO_PASSWORD: ${{ secrets.DEPLOY_SUDO_PASSWORD }}
+
+
+      - name: Verify deployment
         run: |
           set -euo pipefail
           HOST="${{ secrets.TS_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" bash -s <<'EOF'
-            set -euo pipefail
-
-            if curl -fsS http://localhost:8080/healthz > /dev/null; then
-              echo "Health check passed"
-            else
-              echo "Health check failed. Recent logs:"
-              tail -20 ~/app/app.log || true
-              exit 1
-            fi
-            EOF
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" 'curl -fsS http://localhost:8080/health && echo "Final verification: SUCCESS"'
