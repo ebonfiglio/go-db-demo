@@ -30,17 +30,8 @@ func main() {
 
 	router := gin.Default()
 
-	// Health check endpoint - ensure this is working
-	router.GET("/healthz", func(c *gin.Context) {
+	router.GET("/health", func(c *gin.Context) {
 		c.String(200, "ok")
-	})
-
-	// Simple debug endpoint
-	router.GET("/debug", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "running",
-			"server": cfg.Server,
-		})
 	})
 
 	htmlTemplate := web.Parse()
