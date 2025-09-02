@@ -23,9 +23,14 @@ func main() {
 	}
 
 	var orgService *service.OrganizationService
+	var jobService *service.JobService
+
 	if dbConn != nil {
 		orgRepo := db.NewOrganizationRepository(dbConn)
 		orgService = service.NewOrganizationService(orgRepo)
+
+		jobRepo := db.NewJobRepository(dbConn)
+		jobService = service.NewJobService(jobRepo)
 	}
 
 	router := gin.Default()
@@ -47,6 +52,9 @@ func main() {
 
 	organizationHandler := handlers.NewOrganizationHandler(orgService)
 	routes.SetupOrganizationRoutes(router, organizationHandler)
+
+	jobHander := handlers.NewJobHandler(jobService)
+	routes.SetupJobRoutes(router, jobHander)
 
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	fmt.Printf("Server starting on %s\n", serverAddr)

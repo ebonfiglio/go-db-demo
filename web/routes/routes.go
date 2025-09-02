@@ -21,3 +21,10 @@ func SetupOrganizationRoutes(router *gin.Engine, organizationHandler *handlers.O
 		orgGroup.POST("/:id", organizationHandler.Update)
 	}
 }
+
+func SetupJobRoutes(router *gin.Engine, jobHandler *handlers.JobHandler) {
+	jobGroup := router.Group("/jobs")
+	{
+		jobGroup.GET("", jobHandler.List)
+	}
+}
