@@ -26,5 +26,6 @@ func SetupJobRoutes(router *gin.Engine, jobHandler *handlers.JobHandler) {
 	jobGroup := router.Group("/jobs")
 	{
 		jobGroup.GET("", jobHandler.List)
+		jobGroup.GET(":id", jobHandler.Index)
 	}
 }

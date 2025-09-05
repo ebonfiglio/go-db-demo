@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"go-db-demo/console/menu"
 	"go-db-demo/internal/db"
-	"go-db-demo/internal/menu"
 	"go-db-demo/internal/service"
 )
 
