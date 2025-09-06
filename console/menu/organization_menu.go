@@ -5,7 +5,7 @@ import (
 	"go-db-demo/internal/domain"
 )
 
-func OrganizationMenu(organizationService domain.OrganizationService) {
+func OrganizationMenu(orgService domain.OrganizationService) {
 	for {
 		choice := DisplayMenuOptions([]string{
 			"Create Org",
@@ -18,40 +18,40 @@ func OrganizationMenu(organizationService domain.OrganizationService) {
 
 		switch choice {
 		case "1":
-			createOrganizationCommand(organizationService)
+			createOrganizationCommand(orgService)
 			fmt.Println("Success!")
 		case "2":
-			updateOrganizationCommand(organizationService)
+			updateOrganizationCommand(orgService)
 			fmt.Println("Success!")
 		case "3":
-			getOrganizationCommand(organizationService)
+			getOrganizationCommand(orgService)
 		case "4":
 			fmt.Println("Deleting Org...")
-			deleteOrganizationCommand(organizationService)
+			deleteOrganizationCommand(orgService)
 		case "5":
-			listOrganizationsCommand(organizationService)
+			listOrganizationsCommand(orgService)
 		case "6":
 			return
 		}
 	}
 }
 
-func createOrganizationCommand(organizationService domain.OrganizationService) {
+func createOrganizationCommand(orgService domain.OrganizationService) {
 	newOrgValues := getEntityInput()
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	org, err = organizationService.CreateOrganization(org)
+	org, err = orgService.CreateOrganization(org)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("Organziation ID: ", org.ID)
 }
 
-func listOrganizationsCommand(organizationService domain.OrganizationService) {
-	organizations, err := organizationService.GetAllOrganizations()
+func listOrganizationsCommand(orgService domain.OrganizationService) {
+	organizations, err := orgService.GetAllOrganizations()
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -61,12 +61,12 @@ func listOrganizationsCommand(organizationService domain.OrganizationService) {
 	}
 }
 
-func getOrganizationCommand(organizationService domain.OrganizationService) {
+func getOrganizationCommand(orgService domain.OrganizationService) {
 	id := getId()
 	if id == 0 {
 		return
 	}
-	organization, err := organizationService.GetOrganization(id)
+	organization, err := orgService.GetOrganization(id)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -74,14 +74,14 @@ func getOrganizationCommand(organizationService domain.OrganizationService) {
 	fmt.Println(organization.ID, organization.Name)
 }
 
-func updateOrganizationCommand(organizationService domain.OrganizationService) {
+func updateOrganizationCommand(orgService domain.OrganizationService) {
 	newOrgValues := getEntityInput()
 	org, err := domain.JsonToOrganization(newOrgValues)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	org, err = organizationService.UpdateOrganization(org)
+	org, err = orgService.UpdateOrganization(org)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -90,13 +90,13 @@ func updateOrganizationCommand(organizationService domain.OrganizationService) {
 	fmt.Println("Organziation Name: ", org.Name)
 }
 
-func deleteOrganizationCommand(organizationService domain.OrganizationService) {
+func deleteOrganizationCommand(orgService domain.OrganizationService) {
 	id := getId()
 	if id == 0 {
 		return
 	}
 
-	_, err := organizationService.DeleteOrganization(id)
+	_, err := orgService.DeleteOrganization(id)
 	if err != nil {
 		fmt.Println(err)
 		return

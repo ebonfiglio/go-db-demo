@@ -53,7 +53,7 @@ func main() {
 	organizationHandler := handlers.NewOrganizationHandler(orgService)
 	routes.SetupOrganizationRoutes(router, organizationHandler)
 
-	jobHander := handlers.NewJobHandler(jobService)
+	jobHander := handlers.NewJobHandler(jobService, orgService)
 	routes.SetupJobRoutes(router, jobHander)
 
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
