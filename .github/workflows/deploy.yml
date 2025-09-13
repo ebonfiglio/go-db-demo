@@ -112,109 +112,69 @@ jobs:
   # =========================
   # AWS (EC2 + RDS via SSM) — push to main
   # =========================
-  deploy_aws:
+   deploy_aws:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-2
       ARTIFACT_BUCKET: go-db-demo-artifacts-906034468384-us-east-2
       INSTANCE_ID: i-00780106ca1ca36e0
-
       BIN_KEY: releases/${{ github.sha }}/go-db-demo
       MIGS_KEY: releases/${{ github.sha }}/migrations.tar.gz
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
 
       - name: Build (linux/amd64)
-        run: |
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-          go build -ldflags="-s -w" -o go-db-demo ./web/cmd
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
 
-      # Assumes you created a GitHub OIDC role in AWS with s3:PutObject + ssm:SendCommand
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::906034468384:role/GitHubRole
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Who am I? (sanity)
+        run: aws sts get-caller-identity
+
       - name: Upload binary + migrations to S3
         run: |
           set -euo pipefail
-          # Upload the compiled binary
           aws s3 cp ./go-db-demo "s3://${ARTIFACT_BUCKET}/${BIN_KEY}" --only-show-errors
-          # Tar up migrations directory (works even if empty)
-          tar -czf migrations.tar.gz -C internal/db/migrations . || echo "No migrations directory; creating empty tar"
+          tar -czf migrations.tar.gz -C internal/db/migrations . || echo "No migrations dir"
           aws s3 cp ./migrations.tar.gz "s3://${ARTIFACT_BUCKET}/${MIGS_KEY}" --only-show-errors
 
-      - name: SSM - deploy on EC2 (download, env, migrate, restart, health)
+      - name: SSM - deploy on EC2
         id: ssm
         run: |
           set -euo pipefail
-
-          # Shell script executed on the instance by AWS-RunShellScript
           CMD=$(cat <<'SCRIPT'
           set -euo pipefail
-
           APP_DIR="/home/ec2-user/app"
           BIN_PATH="/tmp/go-db-demo"
           MIGS_DIR="/tmp/migrations"
-
           BIN_S3="s3://__BUCKET__/__BIN_KEY__"
           MIGS_S3="s3://__BUCKET__/__MIGS_KEY__"
-
-          # Ensure required tools
           if ! command -v psql >/dev/null 2>&1; then
             sudo dnf -y install postgresql jq tar gzip curl || sudo yum -y install postgresql jq tar gzip curl
           fi
-          if ! command -v aws >/dev/null 2>&1; then
-            echo "AWS CLI missing"; exit 1
-          fi
-
-          echo "[1/6] Download binary"
           aws s3 cp "${BIN_S3}" "${BIN_PATH}" --only-show-errors
           chmod +x "${BIN_PATH}"
-
-          echo "[2/6] Download migrations archive"
           rm -rf "${MIGS_DIR}"; mkdir -p "${MIGS_DIR}"
           if aws s3 ls "${MIGS_S3}" >/dev/null 2>&1; then
             aws s3 cp "${MIGS_S3}" /tmp/migrations.tar.gz --only-show-errors
-            tar -xzf /tmp/migrations.tar.gz -C "${MIGS_DIR}" || echo "No migrations to extract"
-          else
-            echo "No migrations archive found at ${MIGS_S3}"
+            tar -xzf /tmp/migrations.tar.gz -C "${MIGS_DIR}" || true
           fi
-
-          echo "[3/6] Refresh env from SSM and export for this session"
           sudo /usr/local/bin/fetch-env.sh /etc/go-db-demo.env /go-db-demo/prod
-          # shellcheck disable=SC2046
           export $(grep -v '^#' /etc/go-db-demo.env | xargs)
-
-          echo "[4/6] Install new binary"
           pkill -f go-db-demo || true
           sleep 1
           mkdir -p "${APP_DIR}"
           mv "${BIN_PATH}" "${APP_DIR}/go-db-demo"
           chmod +x "${APP_DIR}/go-db-demo"
-
-          # Optional: write a .env file your app can read (systemd already uses /etc/go-db-demo.env)
-          cat > "${APP_DIR}/.env" <<ENVEOF
-          SERVER_HOST=0.0.0.0
-          SERVER_PORT=8080
-          GIN_MODE=release
-          DB_HOST=${DB_HOST}
-          DB_PORT=${DB_PORT}
-          DB_USER=${DB_USER}
-          DB_PASSWORD=${DB_PASSWORD}
-          DB_NAME=${DB_NAME}
-          DB_SSL_MODE=require
-          ENVEOF
-
-          echo "[5/6] Run migrations (lexically sorted *.up.sql)"
           shopt -s nullglob
           MIG_FILES=("${MIGS_DIR}"/*.up.sql)
           if [ ${#MIG_FILES[@]} -gt 0 ]; then
@@ -223,12 +183,8 @@ jobs:
               echo "Applying: $(basename "$f")"
               PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
             done
-          else
-            echo "No *.up.sql files found — skipping migrations."
           fi
           shopt -u nullglob
-
-          echo "[6/6] Restart systemd service and health check"
           sudo systemctl daemon-reload
           sudo systemctl enable go-db-demo || true
           sudo systemctl restart go-db-demo
@@ -236,8 +192,6 @@ jobs:
           curl -fsS http://localhost:8080/health && echo "OK"
           SCRIPT
           )
-
-          # Build the SSM parameters payload, substituting bucket + keys
           CMD_JSON=$(jq -rn --arg bucket "${ARTIFACT_BUCKET}" \
                             --arg binKey "${BIN_KEY}" \
                             --arg migsKey "${MIGS_KEY}" \
@@ -250,7 +204,6 @@ jobs:
                   | gsub("__MIGS_KEY__"; $migsKey))
               ]
             }')
-
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
@@ -259,35 +212,27 @@ jobs:
             --region "${AWS_REGION}" \
             --query "Command.CommandId" \
             --output text)
-
           echo "COMMAND_ID=$COMMAND_ID" >> "$GITHUB_OUTPUT"
 
-      - name: SSM - wait for completion & show logs
+      - name: SSM - wait for completion & logs
         run: |
           set -euo pipefail
           COMMAND_ID="${{ steps.ssm.outputs.COMMAND_ID }}"
-          INSTANCE_ID="${{ env.INSTANCE_ID }}"
-          AWS_REGION="${{ env.AWS_REGION }}"
-
-          # Poll until the command finishes
           for i in {1..60}; do
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --region "$AWS_REGION" \
+              --instance-id "${INSTANCE_ID}" \
+              --region "${AWS_REGION}" \
               --query "Status" --output text || true)
-
-            if [[ "$STATUS" == "Success" ]]; then
-              break
-            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then
-              echo "Command status: $STATUS"
-              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --output text || true
+            if [[ "$STATUS" == "Success" ]]; then break; fi
+            if [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then
+              echo "Status: $STATUS"
+              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "${INSTANCE_ID}" --region "${AWS_REGION}" --output text || true
               exit 1
             fi
             sleep 5
           done
-
           echo "----- STDOUT -----"
-          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --query "StandardOutputContent" --output text || true
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "${INSTANCE_ID}" --region "${AWS_REGION}" --query "StandardOutputContent" --output text || true
           echo "----- STDERR -----"
-          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --query "StandardErrorContent" --output text || true
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "${INSTANCE_ID}" --region "${AWS_REGION}" --query "StandardErrorContent" --output text || true
