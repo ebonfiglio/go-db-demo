@@ -6,4 +6,19 @@
     <li><a href="/jobs">Manage Jobs</a></li>
     <li><a href="/users">Manage Users</a></li>
 </ul>
+
+{{ if .Error }}
+  <div style="color:red;">
+    {{ .Error }}
+  </div>
+{{ end }}
+
+{{ if .Organizations }}
+  <ul>
+    {{ range .Organizations }}
+      <li>{{ .Name }}</li>
+    {{ end }}
+  </ul>
 {{end}}
+
+
