@@ -46,8 +46,8 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 func (h *OrganizationHandler) List(c *gin.Context) {
 	orgs, err := h.orgService.GetAllOrganizations()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
-			"Title": "Organizations",
+		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+			"Title": "Error",
 			"Error": err.Error(),
 		})
 		return
