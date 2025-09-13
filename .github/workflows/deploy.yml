@@ -1,0 +1,214 @@
+name: Deploy app
+
+on:
+  push:
+    branches: ["develop", "main"]
+
+jobs:
+  # =========================
+  # DEV (home server) — push to develop
+  # =========================
+  deploy_dev:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Go setup
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build (linux/amd64)
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      - name: Check secrets (dev)
+        env:
+          TS_HOST: ${{ secrets.TS_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          set -euo pipefail
+          for var in TS_HOST DEPLOY_SSH_KEY DB_HOST DB_USER DB_PASSWORD DB_NAME; do
+            if [ -z "${!var:-}" ]; then echo "Missing secret: $var"; exit 1; fi
+          done
+
+      - name: Setup SSH (dev)
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.TS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Copy artifacts (dev)
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.TS_HOST }}"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo deploy@"$HOST":/tmp/go-db-demo-new
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql deploy@"$HOST":/tmp/
+
+      - name: Deploy on server (dev)
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.TS_HOST }}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@"$HOST" \
+          DB_HOST="${DB_HOST}" DB_USER="${DB_USER}" DB_PASSWORD="${DB_PASSWORD}" DB_NAME="${DB_NAME}" 'bash -s' << "EOF"
+          set -euo pipefail
+
+          APP_DIR="$HOME/app"
+          BIN_TMP="/tmp/go-db-demo-new"
+          MIGS_GLOB="/tmp/*.up.sql"
+
+          pkill -f go-db-demo || true
+          sleep 1
+          mkdir -p "$APP_DIR"
+          mv "$BIN_TMP" "$APP_DIR/go-db-demo"
+          chmod +x "$APP_DIR/go-db-demo"
+
+          cat > "$APP_DIR/.env" <<ENVEOF
+          SERVER_HOST=0.0.0.0
+          SERVER_PORT=8080
+          GIN_MODE=release
+          DB_HOST=${DB_HOST}
+          DB_PORT=5432
+          DB_USER=${DB_USER}
+          DB_PASSWORD=${DB_PASSWORD}
+          DB_NAME=${DB_NAME}
+          DB_SSL_MODE=disable
+          ENVEOF
+
+          echo "Running migrations (dev DB)..."
+          shopt -s nullglob
+          for f in ${MIGS_GLOB}; do
+            echo "Applying: $f"
+            PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
+          done
+          shopt -u nullglob
+
+          cd "$APP_DIR"
+          nohup ./go-db-demo > app.log 2>&1 & echo $! > app.pid
+          sleep 2
+          curl -fsS http://localhost:8080/health && echo "Dev deploy OK"
+          EOF
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+
+  # =========================
+  # AWS (EC2 + RDS via SSM) — push to main
+  # =========================
+  deploy_aws:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Go setup
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build (linux/amd64)
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o go-db-demo ./web/cmd
+
+      - name: Check secrets (aws)
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_SSH_KEY: ${{ secrets.AWS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for var in AWS_HOST AWS_SSH_KEY; do
+            if [ -z "${!var:-}" ]; then echo "Missing secret: $var"; exit 1; fi
+          done
+
+      - name: Setup SSH (aws)
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AWS_SSH_KEY }}" > ~/.ssh/aws_key
+          chmod 600 ~/.ssh/aws_key
+          ssh-keyscan -H ${{ secrets.AWS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Copy artifacts (aws)
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.AWS_HOST }}"
+          scp -i ~/.ssh/aws_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 go-db-demo ec2-user@"$HOST":/tmp/go-db-demo-new
+          scp -i ~/.ssh/aws_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 internal/db/migrations/*.up.sql ec2-user@"$HOST":/tmp/
+
+      - name: Deploy on EC2 (fetch SSM -> migrate -> restart)
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.AWS_HOST }}"
+          ssh -i ~/.ssh/aws_key -o StrictHostKeyChecking=no ec2-user@"$HOST" 'bash -s' << 'EOF'
+          set -euo pipefail
+
+          # Ensure tools
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo dnf -y install postgresql jq || sudo yum -y install postgresql jq
+          fi
+
+          APP_DIR="$HOME/app"
+          BIN_TMP="/tmp/go-db-demo-new"
+          MIGS_GLOB="/tmp/*.up.sql"
+
+          # 1) Refresh env from SSM and export for this session
+          sudo /usr/local/bin/fetch-env.sh /etc/go-db-demo.env /go-db-demo/prod
+          # shellcheck disable=SC2046
+          export $(grep -v '^#' /etc/go-db-demo.env | xargs)
+
+          # 2) Deploy binary
+          pkill -f go-db-demo || true
+          sleep 1
+          mkdir -p "$APP_DIR"
+          mv "$BIN_TMP" "$APP_DIR/go-db-demo"
+          chmod +x "$APP_DIR/go-db-demo"
+
+          # Optional: write app .env (if your app reads it directly)
+          cat > "$APP_DIR/.env" <<ENVEOF
+          SERVER_HOST=0.0.0.0
+          SERVER_PORT=8080
+          GIN_MODE=release
+          DB_HOST=${DB_HOST}
+          DB_PORT=${DB_PORT}
+          DB_USER=${DB_USER}
+          DB_PASSWORD=${DB_PASSWORD}
+          DB_NAME=${DB_NAME}
+          DB_SSL_MODE=require
+          ENVEOF
+
+          # 3) Run migrations against RDS using env from SSM
+          echo "Running migrations against RDS..."
+          shopt -s nullglob
+          for f in ${MIGS_GLOB}; do
+            echo "Applying: $f"
+            PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
+          done
+          shopt -u nullglob
+
+          # 4) Restart systemd service (reads /etc/go-db-demo.env)
+          sudo systemctl daemon-reload
+          sudo systemctl enable go-db-demo || true
+          sudo systemctl restart go-db-demo
+          sleep 2
+
+          # 5) Health check
+          curl -fsS http://localhost:8080/health && echo "AWS deploy OK"
+          EOF
