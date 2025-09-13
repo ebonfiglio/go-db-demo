@@ -112,7 +112,7 @@ jobs:
   # =========================
   # AWS (EC2 + RDS via SSM) — push to main
   # =========================
-   deploy_aws:
+  deploy_aws:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-2
