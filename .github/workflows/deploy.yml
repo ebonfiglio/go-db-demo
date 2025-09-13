@@ -80,7 +80,7 @@ jobs:
             IFS=$'\n' MIG_FILES_SORTED=($(printf "%s\n" "${MIG_FILES[@]}" | sort)); unset IFS
             for f in "${MIG_FILES_SORTED[@]}"; do
               echo "Applying: $(basename "$f")"
-              PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
+              PGPASSWORD="${DB_PASSWORD}" PGSSLMODE=require psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f"
             done
           fi
           shopt -u nullglob
