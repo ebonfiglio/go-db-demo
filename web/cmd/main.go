@@ -47,7 +47,7 @@ func main() {
 		log.Println("Warning: No templates loaded")
 	}
 
-	homeHandler := handlers.NewHomeHandler(orgService)
+	homeHandler := handlers.NewHomeHandler()
 	routes.SetupHomeRoutes(router, homeHandler)
 
 	organizationHandler := handlers.NewOrganizationHandler(orgService)
