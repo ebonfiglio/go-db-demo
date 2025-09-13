@@ -140,7 +140,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::906034468384:role/GitHubDeployRole   # <-- replace with your role ARN
+          role-to-assume: arn:aws:iam::906034468384:role/GitHubRole
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload binary + migrations to S3
