@@ -31,3 +31,12 @@ func SetupJobRoutes(router *gin.Engine, jobHandler *handlers.JobHandler) {
 		jobGroup.POST("", jobHandler.Create)
 	}
 }
+
+func SetupUserRoutes(router *gin.Engine, userHandler *handlers.UserHandler) {
+	userGroup := router.Group("/users")
+	{
+		userGroup.GET("", userHandler.List)
+		userGroup.GET("/new", userHandler.New)
+		userGroup.POST("", userHandler.Create)
+	}
+}
