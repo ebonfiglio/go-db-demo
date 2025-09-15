@@ -64,8 +64,8 @@ func (h *UserHandler) New(c *gin.Context) {
 
 func (h *UserHandler) Create(c *gin.Context) {
 	name := strings.TrimSpace(c.PostForm("name"))
-	orgIDStr := c.PostForm("OrganizationID")
-	jobIDStr := c.PostForm("JobID")
+	orgIDStr := c.PostForm("organizationID")
+	jobIDStr := c.PostForm("jobID")
 
 	if name == "" {
 		h.renderCreateFormWithError(c, "Name is required")
@@ -73,6 +73,11 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	if orgIDStr == "" {
+		h.renderCreateFormWithError(c, "Organization is required")
+		return
+	}
+
+	if jobIDStr == "" {
 		h.renderCreateFormWithError(c, "Organization is required")
 		return
 	}
