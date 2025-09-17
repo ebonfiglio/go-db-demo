@@ -143,3 +143,92 @@ func (h *JobHandler) Create(c *gin.Context) {
 
 	c.Redirect(http.StatusSeeOther, "/jobs")
 }
+
+func (h *JobHandler) Edit(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.HTML(http.StatusBadRequest, "jobs/edit.html", gin.H{
+			"Title":         "Edit Job",
+			"Error":         "Invalid ID",
+			"Organizations": h.orgs,
+		})
+		return
+	}
+
+	job, err := h.jobService.GetJob(id)
+	if err != nil {
+		c.HTML(http.StatusNotFound, "jobs/edit.html", gin.H{
+			"Title":         "Edit Job",
+			"Error":         "Job not found",
+			"Organizations": h.orgs,
+		})
+		return
+	}
+
+	orgs, err := h.getOrgs()
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "jobs/new.html", gin.H{
+			"Title":         "Jobs",
+			"Error":         err.Error(),
+			"Organizations": []domain.Organization{},
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "jobs/edit.html", gin.H{
+		"Title":         "Edit Job",
+		"Job":           job,
+		"Organizations": orgs,
+	})
+}
+
+func (h *JobHandler) Update(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.HTML(http.StatusBadRequest, "jobs/edit.html", gin.H{
+			"Title":         "Edit Organization",
+			"Error":         "Invalid ID",
+			"Organizations": h.orgs,
+		})
+		return
+	}
+	orgIdStr := c.PostForm("organizationID")
+	var orgId int64
+	orgId, err = strconv.ParseInt(orgIdStr, 10, 64)
+	if err != nil {
+		c.HTML(http.StatusBadRequest, "jobs/edit.html", gin.H{
+			"Title":         "Edit Organization",
+			"Error":         "Invalid Org ID",
+			"Organizations": h.orgs,
+		})
+		return
+	}
+
+	name := c.PostForm("name")
+	if name == "" {
+		job, _ := h.jobService.GetJob(id)
+		c.HTML(http.StatusBadRequest, "jobs/edit.html", gin.H{
+			"Title":         "Edit Job",
+			"Job":           job,
+			"Error":         "Name is required",
+			"Organizations": h.orgs,
+		})
+		return
+	}
+
+	job := &domain.Job{ID: id, Name: name, OrganizationID: orgId}
+	_, err = h.jobService.UpdateJob(job)
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "jobs/edit.html", gin.H{
+			"Title":         "Edit Job",
+			"Job":           job,
+			"Error":         err.Error(),
+			"Organizations": h.orgs,
+		})
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/jobs")
+}

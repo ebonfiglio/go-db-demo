@@ -29,6 +29,8 @@ func SetupJobRoutes(router *gin.Engine, jobHandler *handlers.JobHandler) {
 		jobGroup.GET(":id", jobHandler.Index)
 		jobGroup.GET("/new", jobHandler.New)
 		jobGroup.POST("", jobHandler.Create)
+		jobGroup.GET("/:id/edit", jobHandler.Edit)
+		jobGroup.POST("/:id", jobHandler.Update)
 	}
 }
 

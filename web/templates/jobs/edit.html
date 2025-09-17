@@ -1,0 +1,28 @@
+{{define "jobs/edit.html"}}
+<h2>Edit Job</h2>
+
+{{if .Error}}
+<div style="color: red; margin-bottom: 10px;">
+    Error: {{.Error}}
+</div>
+{{end}}
+
+<form method="POST" action="/jobs/{{.Job.ID}}">
+    <input type="hidden" name="_method" value="PUT">
+    <div style="margin-bottom: 10px;">
+        <label for="name">Name:</label><br>
+        <input type="text" id="name" name="name" value="{{.Job.Name}}" required style="width: 300px; padding: 5px;">
+    </div>
+    <label for="organizationID">Organization:</label>
+    <select id="organizationID" name="organizationID" required>
+        <option value="">Select an Organization</option>
+        {{ range .Organizations }}
+        <option value="{{ .ID }}">{{ .Name }}</option>
+        {{ end }}
+    </select>
+    <div>
+        <button type="submit">Update</button>
+        <a href="/jobs">Cancel</a>
+    </div>
+</form>
+{{end}}
