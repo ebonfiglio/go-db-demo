@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"go-db-demo/internal/domain"
 
@@ -17,23 +18,33 @@ func NewOrganizationHandler(orgService domain.OrganizationService) *Organization
 	return &OrganizationHandler{orgService: orgService}
 }
 
-func (h *OrganizationHandler) Index(c *gin.Context) {
+func (h *OrganizationHandler) parseOrganizationID(c *gin.Context) (int64, bool) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
-			"Title": "Organizations",
-			"Error": err.Error(),
-		})
+		renderError(c, "organizations/list.html", "Invalid Organization ID", http.StatusBadRequest)
+		return 0, false
+	}
+	return id, true
+}
+
+func (h *OrganizationHandler) validationOrganizationForm(name string) (string, string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", "Name is required"
+	}
+	return name, ""
+}
+
+func (h *OrganizationHandler) Index(c *gin.Context) {
+	id, ok := h.parseOrganizationID(c)
+	if !ok {
 		return
 	}
 
 	org, err := h.orgService.GetOrganization(id)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
-			"Title": "Organizations",
-			"Error": err.Error(),
-		})
+		renderError(c, "organizations/list.html", "Organization not found", http.StatusNotFound)
 		return
 	}
 
@@ -44,45 +55,36 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 }
 
 func (h *OrganizationHandler) List(c *gin.Context) {
-	orgs, err := h.orgService.GetAllOrganizations()
+	organizations, err := h.orgService.GetAllOrganizations()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/list.html", gin.H{
-			"Title": "Organizations",
-			"Error": err.Error(),
-		})
+		renderError(c, "organizations/list.html", "Error loading organizations", http.StatusInternalServerError)
 		return
 	}
 
 	c.HTML(http.StatusOK, "organizations/list.html", gin.H{
 		"Title":         "Organizations",
-		"Organizations": orgs,
+		"Organizations": organizations,
 	})
 }
 
 func (h *OrganizationHandler) New(c *gin.Context) {
-	c.HTML(http.StatusOK, "organizations/new.html", gin.H{
-		"Title": "New Organization",
+	c.HTML(http.StatusOK, "organizations/form.html", gin.H{
+		"Title":  "New Organization",
+		"IsEdit": false,
 	})
 }
 
 func (h *OrganizationHandler) Create(c *gin.Context) {
-	name := c.PostForm("name")
-
-	if name == "" {
-		c.HTML(http.StatusBadRequest, "organizations/new.html", gin.H{
-			"Title": "New Organization",
-			"Error": "Name is required",
-		})
+	name, errMsg := h.validationOrganizationForm(c.PostForm("name"))
+	if errMsg != "" {
+		h.renderFormWithError(c, errMsg, nil, false)
 		return
 	}
 
-	org := &domain.Organization{Name: name}
-	_, err := h.orgService.CreateOrganization(org)
+	organization := &domain.Organization{Name: name}
+	_, err := h.orgService.CreateOrganization(organization)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/new.html", gin.H{
-			"Title": "New Organization",
-			"Error": err.Error(),
-		})
+		h.renderFormWithError(c, "Failed to create job", nil, false)
 		return
 	}
 
@@ -90,63 +92,71 @@ func (h *OrganizationHandler) Create(c *gin.Context) {
 }
 
 func (h *OrganizationHandler) Edit(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "organizations/edit.html", gin.H{
-			"Title": "Edit Organization",
-			"Error": "Invalid ID",
-		})
+	id, ok := h.parseOrganizationID(c)
+	if !ok {
 		return
 	}
 
-	org, err := h.orgService.GetOrganization(id)
+	organization, err := h.orgService.GetOrganization(id)
 	if err != nil {
-		c.HTML(http.StatusNotFound, "organizations/edit.html", gin.H{
-			"Title": "Edit Organization",
-			"Error": "Organization not found",
-		})
+		renderError(c, "organizations/list/html", "Organization not found", http.StatusNotFound)
 		return
 	}
 
-	c.HTML(http.StatusOK, "organizations/edit.html", gin.H{
+	c.HTML(http.StatusOK, "organizations/form.html", gin.H{
 		"Title":        "Edit Organization",
-		"Organization": org,
+		"Organization": organization,
+		"IsEdit":       true,
 	})
 }
 
 func (h *OrganizationHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "organizations/edit.html", gin.H{
-			"Title": "Edit Organization",
-			"Error": "Invalid ID",
-		})
+	id, ok := h.parseOrganizationID(c)
+	if !ok {
 		return
 	}
 
-	name := c.PostForm("name")
-	if name == "" {
-		org, _ := h.orgService.GetOrganization(id)
-		c.HTML(http.StatusBadRequest, "organizations/edit.html", gin.H{
-			"Title":        "Edit Organization",
-			"Organization": org,
-			"Error":        "Name is required",
-		})
+	currentOrganization, err := h.orgService.GetOrganization(id)
+	if err != nil {
+		renderError(c, "organizations/list.html", "Organization not found", http.StatusNotFound)
+		return
+	}
+
+	name, errMsg := h.validationOrganizationForm(c.PostForm("name"))
+	if errMsg != "" {
+		h.renderFormWithError(c, errMsg, currentOrganization, true)
 		return
 	}
 
 	org := &domain.Organization{ID: id, Name: name}
 	_, err = h.orgService.UpdateOrganization(org)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "organizations/edit.html", gin.H{
-			"Title":        "Edit Organization",
-			"Organization": org,
-			"Error":        err.Error(),
-		})
+		h.renderFormWithError(c, "Failed to update job", currentOrganization, true)
 		return
 	}
 
 	c.Redirect(http.StatusSeeOther, "/organizations")
+}
+
+func (h *OrganizationHandler) renderFormWithError(c *gin.Context, errorMessage string, organization *domain.Organization, isEdit bool) {
+	title := "New Organization"
+	if isEdit {
+		title = "Edit Organization"
+	}
+
+	data := gin.H{
+		"Title":  title,
+		"Error":  errorMessage,
+		"IsEdit": isEdit,
+	}
+
+	if organization != nil {
+		data["Organization"] = organization
+	} else {
+		data["FormData"] = gin.H{
+			"Name": c.PostForm("name"),
+		}
+	}
+
+	c.HTML(http.StatusBadRequest, "organizations/form.html", data)
 }
