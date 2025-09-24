@@ -38,7 +38,10 @@ func SetupUserRoutes(router *gin.Engine, userHandler *handlers.UserHandler) {
 	userGroup := router.Group("/users")
 	{
 		userGroup.GET("", userHandler.List)
+		//userGroup.GET(":id", userHandler.Index)
 		userGroup.GET("/new", userHandler.New)
 		userGroup.POST("", userHandler.Create)
+		userGroup.GET("/:id/edit", userHandler.Edit)
+		userGroup.POST("/:id", userHandler.Update)
 	}
 }
