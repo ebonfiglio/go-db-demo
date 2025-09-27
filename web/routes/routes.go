@@ -14,11 +14,12 @@ func SetupOrganizationRoutes(router *gin.Engine, organizationHandler *handlers.O
 	orgGroup := router.Group("/organizations")
 	{
 		orgGroup.GET("", organizationHandler.List)
-		orgGroup.GET(":id", organizationHandler.Index)
+		orgGroup.GET("/:id", organizationHandler.Index)
 		orgGroup.GET("/new", organizationHandler.New)
 		orgGroup.POST("", organizationHandler.Create)
 		orgGroup.GET("/:id/edit", organizationHandler.Edit)
-		orgGroup.POST("/:id", organizationHandler.Update)
+		orgGroup.PUT("/:id", organizationHandler.Update)
+		orgGroup.POST("/:id/delete", organizationHandler.Delete)
 	}
 }
 
@@ -26,11 +27,11 @@ func SetupJobRoutes(router *gin.Engine, jobHandler *handlers.JobHandler) {
 	jobGroup := router.Group("/jobs")
 	{
 		jobGroup.GET("", jobHandler.List)
-		jobGroup.GET(":id", jobHandler.Index)
+		jobGroup.GET("/:id", jobHandler.Index)
 		jobGroup.GET("/new", jobHandler.New)
 		jobGroup.POST("", jobHandler.Create)
 		jobGroup.GET("/:id/edit", jobHandler.Edit)
-		jobGroup.POST("/:id", jobHandler.Update)
+		jobGroup.PUT("/:id", jobHandler.Update)
 	}
 }
 
@@ -38,10 +39,10 @@ func SetupUserRoutes(router *gin.Engine, userHandler *handlers.UserHandler) {
 	userGroup := router.Group("/users")
 	{
 		userGroup.GET("", userHandler.List)
-		//userGroup.GET(":id", userHandler.Index)
+		userGroup.GET("/:id", userHandler.Index)
 		userGroup.GET("/new", userHandler.New)
 		userGroup.POST("", userHandler.Create)
 		userGroup.GET("/:id/edit", userHandler.Edit)
-		userGroup.POST("/:id", userHandler.Update)
+		userGroup.PUT("/:id", userHandler.Update)
 	}
 }

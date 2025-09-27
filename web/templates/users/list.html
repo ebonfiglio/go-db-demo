@@ -26,7 +26,7 @@
         {{range .Users}}
         <tr>
             <td>{{.ID}}</td>
-            <td>{{.Name}}</td>
+            <td><a href="/users/{{.ID}}">{{.Name}}</a></td>
             <td>{{if .JobID}}{{.JobID}}{{else}}N/A{{end}}</td>
             <td>{{if .OrganizationID}}{{.OrganizationID}}{{else}}N/A{{end}}</td>
             <td>

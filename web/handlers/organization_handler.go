@@ -138,6 +138,28 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/organizations")
 }
 
+func (h *OrganizationHandler) Delete(c *gin.Context) {
+	id, ok := h.parseOrganizationID(c)
+
+	if !ok {
+		return
+	}
+
+	rowsAffected, err := h.orgService.DeleteOrganization(id)
+	if err != nil || rowsAffected < 1 {
+		organizations, err := h.orgService.GetAllOrganizations()
+		if err != nil {
+			organizations = []domain.Organization{}
+		}
+		renderError(c, "organizations/list.html", "Organization could not be deleted.", http.StatusInternalServerError, gin.H{
+			"Organizations": organizations,
+		})
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/organizations")
+}
+
 func (h *OrganizationHandler) renderFormWithError(c *gin.Context, errorMessage string, organization *domain.Organization, isEdit bool) {
 	title := "New Organization"
 	if isEdit {

@@ -235,3 +235,21 @@ func (h *UserHandler) renderFormWithError(c *gin.Context, errorMessage string, u
 
 	c.HTML(http.StatusBadRequest, "users/form.html", data)
 }
+
+func (h UserHandler) Index(c *gin.Context) {
+	id, ok := h.parseUserID(c)
+	if !ok {
+		return
+	}
+
+	user, err := h.userService.GetUser(id)
+	if err != nil {
+		renderError(c, "users/list.html", "User not found", http.StatusNotFound)
+		return
+	}
+
+	c.HTML(http.StatusOK, "users/index.html", gin.H{
+		"Title": "Jobs - " + user.Name,
+		"User":  user,
+	})
+}
