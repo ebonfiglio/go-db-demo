@@ -7,6 +7,12 @@
     <button>Back</button>
 </a>
 
+{{if .Error}}
+<div style="color: red; margin-bottom: 10px;">
+    Error: {{.Error}}
+</div>
+{{end}}
+
 <table border="1" cellpadding="10" cellspacing="0">
     <thead>
         <tr>
@@ -24,6 +30,10 @@
             <td><a href="/organizations/{{.OrganizationID}}">{{.OrganizationID}}</a></td>
             <td>
                 <a href="/jobs/{{.ID}}/edit">Edit</a>
+                  <form method="POST" action="/jobs/{{.ID}}/delete" style="display: inline;">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button type="submit">Delete</button>
+                </form>
             </td>
         </tr>
         {{else}}

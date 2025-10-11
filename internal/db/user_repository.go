@@ -18,8 +18,8 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 func (r *UserRepository) InsertUser(u *domain.User) (*domain.User, error) {
 	createdUser := &domain.User{}
 	err := r.db.Get(createdUser,
-		"INSERT INTO users (name) VALUES ($1) RETURNING id, name",
-		u.Name,
+		"INSERT INTO users (name, job_id, organization_id) VALUES ($1, $2, $3) RETURNING id, name, job_id, organization_id",
+		u.Name, u.JobID, u.OrganizationID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert user: %w", err)
@@ -55,7 +55,7 @@ func (r *UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
 }
 
 func (r *UserRepository) DeleteUser(id int64) (int64, error) {
-	result, err := r.db.Exec("DELETE FROM users WHERE id = %1", id)
+	result, err := r.db.Exec("DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete user: %w", err)
 	}

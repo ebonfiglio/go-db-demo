@@ -17,6 +17,7 @@ func Parse() *template.Template {
 		"templates/*.html",
 		"templates/organizations/*.html",
 		"templates/jobs/*.html",
+		"templates/users/*.html",
 	}
 
 	templateCount := 0
