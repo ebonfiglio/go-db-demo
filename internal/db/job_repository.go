@@ -58,7 +58,7 @@ func (r *JobRepository) UpdateJob(j *domain.Job) (*domain.Job, error) {
 }
 
 func (r *JobRepository) DeleteJob(id int64) (int64, error) {
-	result, err := r.db.Exec("DELETE FROM jobs WHERE id = %1", id)
+	result, err := r.db.Exec("DELETE FROM jobs WHERE id = $1", id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete job: %w", err)
 	}

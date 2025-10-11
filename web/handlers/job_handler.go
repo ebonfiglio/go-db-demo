@@ -163,6 +163,38 @@ func (h *JobHandler) Update(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/jobs")
 }
 
+func (h *JobHandler) Delete(c *gin.Context) {
+	id, ok := h.parseJobID(c)
+	if !ok {
+		return
+	}
+
+	rowsAffected, err := h.jobService.DeleteJob(id)
+
+	if err != nil {
+		h.renderDeleteError(c, "Failed to delete job: "+err.Error())
+		return
+	}
+
+	if rowsAffected < 1 {
+		h.renderDeleteError(c, "Job not found or already deleted")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/jobs")
+}
+
+func (h *JobHandler) renderDeleteError(c *gin.Context, message string) {
+	jobs, err := h.jobService.GetAllJobs()
+	if err != nil {
+		jobs = []domain.Job{}
+	}
+
+	renderError(c, "jobs/list.html", message, http.StatusInternalServerError, gin.H{
+		"Jobs": jobs,
+	})
+}
+
 func (h *JobHandler) renderFormWithError(c *gin.Context, errorMessage string, job *domain.Job, isEdit bool) {
 	organizations, err := h.orgService.GetAllOrganizations()
 	if err != nil {

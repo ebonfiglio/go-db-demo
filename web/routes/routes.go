@@ -32,6 +32,7 @@ func SetupJobRoutes(router *gin.Engine, jobHandler *handlers.JobHandler) {
 		jobGroup.POST("", jobHandler.Create)
 		jobGroup.GET("/:id/edit", jobHandler.Edit)
 		jobGroup.PUT("/:id", jobHandler.Update)
+		jobGroup.POST("/:id/delete", jobHandler.Delete)
 	}
 }
 
@@ -44,5 +45,6 @@ func SetupUserRoutes(router *gin.Engine, userHandler *handlers.UserHandler) {
 		userGroup.POST("", userHandler.Create)
 		userGroup.GET("/:id/edit", userHandler.Edit)
 		userGroup.PUT("/:id", userHandler.Update)
+		userGroup.POST("/:id/delete", userHandler.Delete)
 	}
 }

@@ -199,6 +199,37 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 }
 
+func (h *UserHandler) Delete(c *gin.Context) {
+	id, ok := h.parseUserID(c)
+	if !ok {
+		return
+	}
+
+	rowsAffected, err := h.userService.DeleteUser(id)
+
+	if err != nil {
+		h.renderDeleteError(c, "Failed to delete user: "+err.Error())
+		return
+	}
+
+	if rowsAffected < 1 {
+		h.renderDeleteError(c, "User not found or already deleted")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/users")
+}
+
+func (h *UserHandler) renderDeleteError(c *gin.Context, message string) {
+	users, err := h.userService.GetAllUsers()
+	if err != nil {
+		users = []domain.User{}
+	}
+
+	renderError(c, "users/list.html", message, http.StatusInternalServerError, gin.H{
+		"Users": users,
+	})
+}
 func (h *UserHandler) renderFormWithError(c *gin.Context, errorMessage string, user *domain.User, isEdit bool) {
 	organizations, err := h.orgService.GetAllOrganizations()
 	if err != nil {

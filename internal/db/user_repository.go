@@ -55,7 +55,7 @@ func (r *UserRepository) UpdateUser(u *domain.User) (*domain.User, error) {
 }
 
 func (r *UserRepository) DeleteUser(id int64) (int64, error) {
-	result, err := r.db.Exec("DELETE FROM users WHERE id = %1", id)
+	result, err := r.db.Exec("DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete user: %w", err)
 	}
